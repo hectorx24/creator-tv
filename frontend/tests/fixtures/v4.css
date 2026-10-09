@@ -1,0 +1,186 @@
+/* Patreon TV — immersive dark TV interface tokens (higher contrast than typical dark UI) */
+:root {
+  --ptv-bg: #0a0a0c;
+  --ptv-surface: #1a171a;
+  --ptv-raised: #242023;
+  --ptv-line: #3c373c;
+  --ptv-text: #faf8f7;
+  --ptv-muted: #cac4c6;
+  --ptv-muted-dim: #8d878a;
+  --ptv-accent: #ff8569;
+  --ptv-accent-strong: #ff6b47;
+  --ptv-accent-soft: #ff85691a;
+  --ptv-focus: #ffd79a;
+}
+
+
+.ptv{color:#faf8f7;font-family:sans-serif;background:var(--ptv-bg)}
+/* ───────────────────────── v4: television layout ─────────────────────────
+ * The WebView on Chromecast with Google TV reports a *scaled* CSS viewport
+ * (e.g. ~960×540 for a 1280×720 panel), so fixed pixel heights and
+ * `min-height: 100dvh` pushed content past the bottom edge. Screens are now a
+ * fixed-height flex column that fills the viewport exactly; the middle row
+ * (`.ptv-fill`) absorbs whatever space is left and never grows the page.
+ */
+:root {
+  /* TV title-safe area (~5% overscan), also honouring real insets when present. */
+  --ptv-safe-x: max(env(safe-area-inset-left, 0px), 4vw);
+  --ptv-safe-y: max(env(safe-area-inset-top, 0px), 4.5vh);
+  --ptv-dock-h: 0px;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+  background: var(--ptv-bg);
+}
+
+.ptv {
+  height: 100vh; /* fallback for WebViews without dvh */
+  height: 100dvh;
+  overflow: hidden;
+}
+
+.ptv-screen {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  padding: var(--ptv-safe-y) var(--ptv-safe-x) calc(var(--ptv-safe-y) + var(--ptv-dock-h));
+}
+
+.ptv-fill {
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+.ptv-scroll {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.ptv-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: var(--ptv-bg);
+}
+
+/* Fluid type that follows the *height* of the TV viewport. */
+.ptv-h1 {
+  font-size: clamp(1.5rem, 5.4vh, 3rem);
+  line-height: 1.1;
+}
+.ptv-h2 {
+  font-size: clamp(1.25rem, 4.2vh, 2rem);
+  line-height: 1.15;
+}
+
+/* Browse hero + neighbours: sized by the row, not by fixed pixels. */
+.ptv-hero {
+  position: relative;
+  height: 100%;
+  max-height: 480px;
+  flex: 3 1 0;
+  min-width: 0;
+  overflow: hidden;
+  border-radius: 1.5rem;
+  background: var(--ptv-surface);
+  border: 1px solid var(--ptv-line);
+}
+.ptv-side {
+  height: 80%;
+  max-height: 380px;
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+/* ───────────────────────── v4: focus ring ─────────────────────────
+ * One consistent ring for every D-pad target. `:focus` (not only
+ * `:focus-visible`) so scripted focus from the remote always shows it. */
+[data-nav] {
+  outline: none;
+  transition: box-shadow 140ms ease-out, transform 140ms ease-out, background-color 140ms ease-out, color 140ms ease-out;
+}
+[data-nav]:focus {
+  outline: 3px solid var(--ptv-focus);
+  outline-offset: 3px;
+}
+/* Foco con "física": sube y rebota un poco al llegar (curva con sobreimpulso), y se hunde al pulsar OK.
+ * Solo transform/box-shadow: no mueve el layout. */
+[data-nav][data-nav-lift] {
+  transition: transform 260ms cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 200ms ease-out,
+    background-color 140ms ease-out, color 140ms ease-out;
+}
+[data-nav][data-nav-lift]:focus {
+  transform: translateY(-4px) scale(1.025);
+  box-shadow: 0 14px 34px -10px var(--ptv-accent-soft), 0 0 0 1px var(--ptv-focus);
+}
+[data-nav]:active {
+  transform: scale(0.97);
+  transition-duration: 80ms;
+}
+[data-nav][data-nav-lift]:active {
+  transform: translateY(-1px) scale(0.985);
+}
+.ptv-focusable:focus-visible {
+  outline: 3px solid var(--ptv-focus);
+  outline-offset: 3px;
+}
+
+/* Reserve room for the minimised player instead of overlapping content. */
+body[data-mini="open"] {
+  --ptv-dock-h: 76px;
+}
+body[data-mini="open"] .ptv-footer-brand {
+  visibility: hidden;
+}
+
+/* Minimised player: only opacity/transform ever animate. */
+.ptv-mini {
+  position: fixed;
+  right: var(--ptv-safe-x);
+  bottom: calc(var(--ptv-safe-y) - 8px);
+  z-index: 45;
+  width: min(380px, 40vw);
+  contain: layout paint;
+}
+.ptv-mini-progress {
+  height: 100%;
+  width: 100%;
+  transform-origin: left center;
+  background: var(--ptv-accent);
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-nav],
+  [data-nav][data-nav-lift]:focus {
+    transition: none;
+    transform: none;
+  }
+}
+
+/* Text inputs show the ring on their rounded wrapper, not a square outline. */
+input.ptv-input-bare:focus {
+  outline: none;
+}
+div:has(> input.ptv-input-bare:focus) {
+  outline: 3px solid var(--ptv-focus);
+  outline-offset: 3px;
+}
+input[type="range"][data-nav]:focus {
+  outline: 3px solid var(--ptv-focus);
+  outline-offset: 6px;
+  border-radius: 999px;
+}

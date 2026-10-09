@@ -1,0 +1,39 @@
+<!doctype html><html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="stylesheet" href="v4.css">
+<style>
+ /* tiny stand-ins for the Tailwind utilities the real screen uses */
+ .row{display:flex;align-items:center}.between{justify-content:space-between}.gap{gap:12px}
+ button{font:inherit;color:inherit;background:#242023;border:1px solid #3c373c;border-radius:999px;padding:8px 18px}
+ .tabs{display:flex;gap:6px;justify-content:center;margin-top:2.2vh}
+ .hero-body{display:grid;grid-template-columns:1fr 1fr;height:100%}
+ footer{font-size:12px;margin-top:1.6vh;display:flex;justify-content:space-between}
+ .mini[hidden]{display:none}
+ .mini{display:flex;gap:8px;padding:8px;background:#242023;border-radius:16px;height:60px;align-items:center}
+</style></head><body>
+<div id="app" class="ptv"><div data-tv-screen data-tv-dock-ok style="height:100%">
+ <div class="ptv-screen" id="screen">
+  <header class="row between" style="flex-shrink:0"><b>Patreon TV</b>
+   <div class="row gap"><button data-nav data-nav-id="creator">Creador</button><button data-nav data-nav-id="search">Q</button></div></header>
+  <nav class="tabs" style="flex-shrink:0"><button data-nav data-nav-id="tab:latest">Últimos</button><button data-nav data-nav-id="tab:video">Vídeos</button><button data-nav data-nav-id="tab:audio">Audio</button><button data-nav data-nav-id="tab:text">Texto</button></nav>
+  <div style="margin-top:2.6vh;flex-shrink:0"><h1 class="ptv-h1" style="margin:0">Últimos episodios</h1></div>
+  <div class="ptv-fill row" style="margin-top:2.4vh;gap:16px">
+   <div class="ptv-side" style="background:#333"></div>
+   <div class="ptv-hero" id="hero" data-nav data-nav-id="hero" data-nav-default tabindex="0"><div class="hero-body"><div style="background:#555"></div><div style="padding:2vh 2.4vw"><h2 class="ptv-h2" style="margin:0">Título de episodio largo para probar el recorte</h2></div></div></div>
+   <div class="ptv-side" style="background:#333"></div>
+  </div>
+  <footer id="footer"><span>← → Explorar · ↑ ↓ Moverse</span><span class="ptv-footer-brand">Patreon TV Personal</span></footer>
+ </div></div></div>
+<div id="dock" data-tv-dock class="ptv-mini mini" hidden>
+ <button data-nav data-nav-id="mini-expand" style="flex:1">Reproductor</button><button data-nav data-nav-id="mini-play">▶</button><button data-nav data-nav-id="mini-close">✕</button></div>
+<script src="harness.js"></script>
+<script>
+ H.installTvInput();
+ window.heroPresses = []; 
+ H.registerTvLayer((a)=>{ const n=H.currentNavId();
+   if(a==='left'||a==='right'){ if(n==='hero'){window.heroPresses.push(a);return true} return false }
+   if(a==='ok'&&n==='hero'){window.heroPresses.push('ok');return true}
+   if(a==='back'){window.heroPresses.push('back');return true} return false });
+ function openDock(){document.getElementById('dock').hidden=false;document.body.setAttribute('data-mini','open')}
+ function closeDock(){document.getElementById('dock').hidden=true;document.body.removeAttribute('data-mini')}
+</script></body></html>

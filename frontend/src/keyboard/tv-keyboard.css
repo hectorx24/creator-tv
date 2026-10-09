@@ -1,0 +1,26 @@
+/* Styles for the existing remote keyboard, scoped to its overlay. */
+.tv-keyboard-overlay {
+  position: fixed; inset: 0; z-index: 10000;
+  align-items: center; justify-content: center;
+  padding: 4.5vh 4vw; background: rgb(10 10 12 / 94%);
+  color: #faf8f7; font-family: inherit; box-sizing: border-box;
+}
+.tv-keyboard-modal { width: min(900px, 100%); max-height: 100%; overflow: auto; }
+.tv-keyboard-header { margin-bottom: 2vh; }
+.tv-keyboard-label { font-size: clamp(14px, 2.8vh, 24px); color: #ff9d8d; }
+.tv-keyboard-display {
+  margin-top: 1vh; padding: 1vh 1vw; min-height: 6vh;
+  background: #202026; border-radius: 8px; white-space: pre-wrap;
+  overflow-wrap: anywhere; max-height: 14vh; overflow: auto;
+}
+.tv-keyboard-grid { display: flex; flex-direction: column; gap: 1.2vh; }
+.tv-kb-row { display: flex; gap: 0.8vw; }
+.tv-kb-key {
+  flex: 1; min-width: 0; height: 8vh; border: 2px solid transparent;
+  border-radius: 8px; background: #24242b; color: inherit;
+  font: inherit; font-size: clamp(12px, 2.8vh, 24px);
+}
+.tv-kb-key.focused, .tv-kb-key:focus-visible {
+  outline: none; border-color: #ff9d8d; background: #4b322e;
+}
+.tv-kb-shift.active, .tv-kb-done { color: #ff9d8d; }
