@@ -26,7 +26,11 @@ export function CreatorGrid({
 
   useTvInput((action) => {
     if (action !== "back") return false
-    onLogout()
+    // BACK at top level backgrounds/leaves the app gracefully, preserving the authenticated session.
+    // Only the explicit "Cerrar sesión" button triggers logout.
+    try {
+      ;(window as any).PersonalAudio?.moveTaskToBack?.()
+    } catch {}
     return true
   })
 

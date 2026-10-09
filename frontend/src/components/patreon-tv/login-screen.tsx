@@ -104,16 +104,20 @@ export function LoginScreen({
                 data-nav-id="login-email"
                 data-nav-default
                 type="email"
-                inputMode="none"
+                inputMode="email"
                 autoComplete="email"
                 placeholder="Correo electrónico"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                onClick={() => {
+                  try {
+                    ;(window as any).PersonalAudio?.showKeyboard?.()
+                  } catch {}
+                }}
                 className="w-full rounded-xl px-4 py-3.5 text-base"
                 style={{ background: "var(--ptv-surface)", border: "1px solid var(--ptv-line)", color: "var(--ptv-text)" }}
               />
               <input
-                inputMode="none"
                 data-nav
                 data-nav-id="login-password"
                 type="password"
@@ -121,13 +125,17 @@ export function LoginScreen({
                 placeholder="Contraseña"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                onClick={() => {
+                  try {
+                    ;(window as any).PersonalAudio?.showKeyboard?.()
+                  } catch {}
+                }}
                 className="w-full rounded-xl px-4 py-3.5 text-base"
                 style={{ background: "var(--ptv-surface)", border: "1px solid var(--ptv-line)", color: "var(--ptv-text)" }}
               />
             </>
           ) : (
             <input
-              inputMode="none"
               data-nav
               data-nav-id="login-session"
               data-nav-default
@@ -135,6 +143,11 @@ export function LoginScreen({
               placeholder="Pega tu ID de sesión"
               value={sessionId}
               onChange={(e) => setSessionId(e.target.value)}
+              onClick={() => {
+                try {
+                  ;(window as any).PersonalAudio?.showKeyboard?.()
+                } catch {}
+              }}
               className="w-full rounded-xl px-4 py-3.5 text-base"
               style={{ background: "var(--ptv-surface)", border: "1px solid var(--ptv-line)", color: "var(--ptv-text)" }}
             />

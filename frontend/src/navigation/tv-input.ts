@@ -75,6 +75,11 @@ function onKeyDown(e: KeyboardEvent) {
   if (!action) return
 
   if (isTextField(e.target)) {
+    if (action === "ok") {
+      try {
+        ;(window as any).PersonalAudio?.showKeyboard?.()
+      } catch {}
+    }
     // Typing keeps its keys; Up/Down leave the field, an explicit back key closes it.
     const leaveField = action === "up" || action === "down"
     const explicitBack = action === "back" && e.key !== "Backspace"

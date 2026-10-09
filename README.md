@@ -12,10 +12,12 @@ A modern, open-source 10-foot television interface and client application design
   - Strict axis containment: UP/DOWN traverses vertical tiers; LEFT/RIGHT traverses horizontal carousels without unintentional cross-jumping.
   - Edge confinement prevents focus wrapping or unintentional defocusing.
 
-- **Custom On-Screen TV Keyboard:**
-  - Full QWERTY + numeric TV keyboard optimized for directional navigation.
-  - Fast email shortcuts (`@gmail.com`, `.com`), uppercase toggle (`MAYÚS`), and backspace.
-  - **Native IME Suppression:** Suppresses Android's system soft-keyboard and "type from phone" popups using `WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM` while cleanly forwarding remote `OK` events.
+- **Native Google TV & Android TV Input:**
+  - Seamless integration with the system's native Google TV / Android TV keyboard (Gboard / IME).
+  - Full support for native TV input features, including voice typing ("Mantén presionado para hablar") and phone-assisted typing.
+  - Standard input modes configured for Email, Password (with visual masking), and Universal Search.
+  - D-pad navigation resumes smoothly upon closing the keyboard with BACK.
+  - Optional custom on-screen keyboard available as an uninvoked fallback.
 
 - **Dual-Mode Audio Engine:**
   - Fullscreen player with real-time timeline, seeking, and album art.
@@ -38,21 +40,23 @@ A modern, open-source 10-foot television interface and client application design
 
 ---
 
-## Architecture & Codebase
+## Architecture & Open Source Scope
+
+This public repository contains the sanitized open-source frontend application, native Android services, bridge layer, and unit test suites:
 
 ```text
 creator-tv/
 ├── frontend/                     # React 19 + Vite + Tailwind CSS TV client
 │   ├── src/
 │   │   ├── components/patreon-tv/  # Screens: Login, Browse, Player, Search, Reader
-│   │   ├── keyboard/              # TV On-screen keyboard implementation
+│   │   ├── keyboard/              # TV keyboard fallback component
 │   │   ├── navigation/            # TV spatial input & focus engine
 │   │   ├── lib/patreon-tv/        # Motion tokens, formatting, types
 │   │   └── integration/           # Host bridge, demo mode, catalog adapters
 │   └── tests/                     # 59 automated navigation & layout DOM tests
 ├── android/                      # Native Android Java layer
 │   └── src/main/java/com/patreontv/personal/
-│       ├── NativeAudioBridge.java       # WebView bridge & IME suppression hook
+│       ├── NativeAudioBridge.java       # WebView bridge & window manager integration
 │       ├── NativeAudioService.java      # Background MediaPlayer service
 │       ├── PhoneRemoteServer.java       # Local phone remote HTTP server
 │       ├── CatalogExtension.java        # Feed taxonomy & pagination parser
@@ -61,12 +65,16 @@ creator-tv/
     └── build.sh                         # Production asset builder
 ```
 
+> **Note on Private Base vs. Public Repository:**
+> Proprietary signing keys (`.keystore` / `.jks`), production authentication tokens, personal session identifiers, and third-party decompiled binaries are deliberately excluded from this repository. Production builds are assembled locally using the provided build scripts.
+
 ---
 
 ## Development History & Credits
 
-- **Claude:** Authored the v4.0/v4.1 UI iterations, motion tokens system, and TV navigation components.
-- **Antigravity (Google DeepMind):** Completed the real-device Chromecast HD validation matrix, integrated the Android IME suppression fix (`FLAG_ALT_FOCUSABLE_IM` + `dispatchRemoteOk`), built production APK candidates, verified multi-resolution compatibility, and prepared this sanitized open-source repository.
+- **Claude:** Designed and authored the core v4.0/v4.1 UI iterations, motion token design system, and TV navigation components.
+- **Codex:** Initial Mac build environment consolidation, early packaging scripts, and first real-device ADB pair/install flow.
+- **Antigravity (Google DeepMind):** Fixed the native Google TV keyboard passthrough, resolved the BACK-key session logout bug, restored session persistence across app backgrounding, completed the comprehensive hardware verification matrix on Chromecast HD, authored the automated layout/navigation test harness, and prepared this sanitized open-source release.
 
 ---
 

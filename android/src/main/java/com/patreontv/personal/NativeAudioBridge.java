@@ -23,26 +23,16 @@ public final class NativeAudioBridge {
 
     public static void install(Activity activity, WebView view) {
         view.addJavascriptInterface(new NativeAudioBridge(activity, view), "PersonalAudio");
-        // Google TV handles DPAD_CENTER on editable WebView nodes before a DOM
-        // keydown reaches our keyboard. Keep the window out of the system IME
-        // and deliver OK to the focused DOM node, consuming both native edges.
-        activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM);
+        // Ensure the window allows the native Google TV / Android TV input method (IME) to show.
+        activity.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM);
         try {
             PhoneRemoteServer.start(activity, view);
         } catch (Exception ignored) {}
     }
 
-    /** Called from the prepared Activity before WebView consumes remote OK. */
+    /** No-op: Allow native Android WebView to handle remote OK and invoke the native IME. */
     public static boolean dispatchRemoteOk(WebView view, KeyEvent event) {
-        int keyCode = event.getKeyCode();
-        if (view == null || (keyCode != KeyEvent.KEYCODE_DPAD_CENTER
-                && keyCode != KeyEvent.KEYCODE_ENTER && keyCode != KeyEvent.KEYCODE_NUMPAD_ENTER)) return false;
-        if (event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() == 0) {
-            view.evaluateJavascript("(function(){var t=document.activeElement||document.body;"
-                    + "var e=new KeyboardEvent('keydown',{key:'Enter',code:'Enter',keyCode:13,which:13,bubbles:true,cancelable:true});"
-                    + "if(t.dispatchEvent(e)&&t.matches('button,a[href],[role=button],[role=tab]'))t.click();})()", null);
-        }
-        return true;
+        return false;
     }
 
     @JavascriptInterface
@@ -51,10 +41,23 @@ public final class NativeAudioBridge {
             activity.runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
+                    view.requestFocus();
                     InputMethodManager imm = (InputMethodManager) activity.getSystemService(Context.INPUT_METHOD_SERVICE);
                     if (imm != null) {
-                        imm.showSoftInput(view, InputMethodManager.SHOW_IMPLICIT);
+                        imm.showSoftInput(view, 0);
                     }
+                }
+            });
+        }
+    }
+
+    @JavascriptInterface
+    public void moveTaskToBack() {
+        if (activity != null) {
+            activity.runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    activity.moveTaskToBack(true);
                 }
             });
         }

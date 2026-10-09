@@ -1219,6 +1219,13 @@
     const action = toAction(e);
     if (!action) return;
     if (isTextField(e.target)) {
+      if (action === "ok") {
+        try {
+          ;
+          window.PersonalAudio?.showKeyboard?.();
+        } catch {
+        }
+      }
       const leaveField = action === "up" || action === "down";
       const explicitBack = action === "back" && e.key !== "Backspace";
       if (!leaveField && !explicitBack) return;

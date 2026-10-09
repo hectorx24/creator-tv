@@ -171,12 +171,6 @@
 
   function handleKeyboardNav(e) {
     if (!overlay || overlay.style.display === 'none') {
-      const isOk = e.key === 'Enter' || e.key === 'Select' || e.keyCode === 13 || e.keyCode === 23 || e.keyCode === 66;
-      if (isOk && isTextInput(e.target)) {
-        e.preventDefault();
-        e.stopImmediatePropagation();
-        openTvKeyboard(e.target);
-      }
       return;
     }
 
@@ -246,20 +240,9 @@
       !/^(button|submit|checkbox|radio|range|file|image|reset)$/i.test(el.type || 'text');
   }
 
-  // El IME de Google TV solo ofrece "escribir desde el móvil": se desactiva en todos los campos de texto
-  // para que el único teclado sea este.
-  function suppressSystemKeyboard(el) {
-    if (!isTextInput(el)) return;
-    if (el.getAttribute('inputmode') !== 'none') el.setAttribute('inputmode', 'none');
-    try { window.PersonalAudio && window.PersonalAudio.hideKeyboard && window.PersonalAudio.hideKeyboard(); } catch (e) {}
-  }
-  function suppressAll(root) {
-    (root.querySelectorAll ? root.querySelectorAll('input') : []).forEach(suppressSystemKeyboard);
-  }
-
   function openTvKeyboard(input) {
     if (!input) return;
-    if (overlay && overlay.style.display !== 'none' && activeInput === input) return; // ya abierto: evita doble apertura click+Enter
+    if (overlay && overlay.style.display !== 'none' && activeInput === input) return;
     if (Date.now() - justClosedAt < 300) return;
     activeInput = input;
     currentVal = input.value || '';
@@ -268,8 +251,6 @@
     overlay.style.display = 'flex';
     activeIndex = 0;
     focusKeyIndex(0);
-
-    suppressSystemKeyboard(input);
   }
 
   function closeTvKeyboard(submitted = false) {
@@ -283,7 +264,6 @@
     if (target) {
       target.focus();
       if (submitted) {
-        // If Enter was pressed on Listo, dispatch Enter keydown on the input
         const ev = new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true });
         ev.__fromTvKeyboard = true;
         target.dispatchEvent(ev);
@@ -291,25 +271,8 @@
     }
   }
 
-  // Campos presentes y futuros (React los monta y desmonta al cambiar de pantalla)
-  document.addEventListener('focusin', function (e) { suppressSystemKeyboard(e.target); }, true);
-  const startObserver = function () {
-    suppressAll(document);
-    new MutationObserver(function (muts) {
-      muts.forEach(function (m) { m.addedNodes.forEach(function (n) { if (n.nodeType === 1) { suppressSystemKeyboard(n); suppressAll(n); } }); });
-    }).observe(document.documentElement, { childList: true, subtree: true });
-  };
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', startObserver); else startObserver();
-
-  // Global capture listeners
+  // Global capture listener only when the custom overlay is visible
   window.addEventListener('keydown', handleKeyboardNav, true);
-
-  // Hook into input clicks
-  document.addEventListener('click', function(e) {
-    if (e.target && e.target.tagName === 'INPUT' && !e.target.disabled) {
-      openTvKeyboard(e.target);
-    }
-  }, true);
 
   // Global helper
   window.__openTvKeyboard = openTvKeyboard;

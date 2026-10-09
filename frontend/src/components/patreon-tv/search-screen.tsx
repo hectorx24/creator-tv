@@ -73,13 +73,18 @@ export function SearchScreen({
         >
           <SearchIcon className="h-4.5 w-4.5 flex-shrink-0" style={{ color: "var(--ptv-muted-dim)" }} aria-hidden="true" />
           <input
-            inputMode="none"
+            inputMode="search"
             ref={inputRef}
             data-nav
             data-nav-id="search-input"
             data-nav-default
             value={query}
             onChange={(e) => setQuery(e.target.value)}
+            onClick={() => {
+              try {
+                ;(window as any).PersonalAudio?.showKeyboard?.()
+              } catch {}
+            }}
             type="search"
             placeholder="Buscar en todos los creadores…"
             className="ptv-input-bare w-full bg-transparent text-base"

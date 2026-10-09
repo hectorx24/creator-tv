@@ -15,7 +15,7 @@ import { CREATORS, CONTENT, contentForCreator as demoContentForCreator } from "@
 
 const ART_COLORS: ArtColor[] = ["coral", "gold", "purple", "green", "slate"]
 
-let demoActive = false
+let demoActive = typeof window !== "undefined" && window.localStorage?.getItem("ptv_demo_active") === "true"
 
 export function isDemoActive(): boolean {
   return demoActive
@@ -95,9 +95,15 @@ const auth: AuthPort = {
   async login(credentials: LoginCredentials): Promise<void> {
     if (credentials.method === "session" && credentials.sessionId.trim().toLowerCase() === "demo") {
       demoActive = true
+      try {
+        window.localStorage?.setItem("ptv_demo_active", "true")
+      } catch {}
       return
     }
     demoActive = false
+    try {
+      window.localStorage?.removeItem("ptv_demo_active")
+    } catch {}
 
     if (credentials.method === "password") {
       const res = await fetch("/api/auth/login", {
@@ -124,6 +130,9 @@ const auth: AuthPort = {
 
   async logout(): Promise<void> {
     demoActive = false
+    try {
+      window.localStorage?.removeItem("ptv_demo_active")
+    } catch {}
     stopDemoAudioTimer()
     try {
       await fetch("/api/auth/logout", { method: "POST" })
