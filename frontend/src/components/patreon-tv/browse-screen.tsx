@@ -4,6 +4,7 @@ import { spring, exitTween } from "@/lib/patreon-tv/motion-tokens"
 import { Lock, Play, Search, ChevronDown, FileText } from "lucide-react"
 import type { ContentItem, ContentKind } from "@/lib/patreon-tv/types"
 import { creatorById, loadMore } from "@/integration/catalog"
+import { groupSeries, seriesOf } from "@/lib/patreon-tv/series"
 import { formatDate, formatClock, KIND_LABEL } from "@/lib/patreon-tv/format"
 import { useTvInput } from "@/navigation/tv-input"
 import { activeScreen, currentNavId, focusById } from "@/navigation/focus-nav"
@@ -11,10 +12,11 @@ import { Artwork, knownRatio } from "./artwork"
 import { AnimatedLogo } from "./logo"
 import { getProgress, progressFraction } from "@/lib/patreon-tv/progress"
 
-type Tab = "latest" | Exclude<ContentKind, "text"> | "posts"
+type Tab = "latest" | "series" | Exclude<ContentKind, "text"> | "posts"
 
 const TABS: { id: Tab; label: string }[] = [
-  { id: "latest", label: "Últimos" },
+  { id: "latest", label: "Todo" },
+  { id: "series", label: "Series" },
   { id: "video", label: "Vídeos" },
   { id: "audio", label: "Audio" },
   { id: "posts", label: "Texto" },
@@ -50,15 +52,26 @@ export function BrowseScreen({
     return () => clearInterval(t)
   }, [active])
 
+  // A chosen series narrows every tab; BACK clears it.
+  const [show, setShow] = useState<string | null>(null)
+  const series = useMemo(() => groupSeries(items), [items])
   const filtered = useMemo(() => {
-    // "Publicaciones" lists every post: its full body is fetched on demand by the reader.
-    if (tab === "latest" || tab === "posts") return items
-    return items.filter((i) => i.kind === tab)
-  }, [items, tab])
+    const pool = show ? items.filter((i) => seriesOf(i)?.toLowerCase() === show.toLowerCase()) : items
+    // Series tab: one card per show, represented by its newest post.
+    if (tab === "series") return series.map((s) => ({ ...s.items[0], id: `series:${s.name}`, title: s.name }))
+    if (tab === "latest" || tab === "posts") return pool
+    return pool.filter((i) => i.kind === tab)
+  }, [items, tab, show, series])
 
   useEffect(() => {
     setIndex(0)
-  }, [tab])
+  }, [tab, show])
+
+  const openSeries = (name: string) => {
+    setShow(name)
+    setTab("latest")
+    requestAnimationFrame(() => focusById("hero"))
+  }
 
   const count = filtered.length
   const current = filtered[index]
@@ -114,11 +127,16 @@ export function BrowseScreen({
         return false // otherwise: next/previous control in the same row
       case "ok":
         if (nav === "hero") {
-          if (current) (tab === "posts" || current.kind === "text") && onReadItem ? onReadItem(current) : onOpenItem(current)
+          if (current && tab === "series") openSeries(current.title)
+          else if (current) (tab === "posts" || current.kind === "text") && onReadItem ? onReadItem(current) : onOpenItem(current)
           return true
         }
         return false
       case "back":
+        if (show) {
+          setShow(null)
+          return true
+        }
         // First BACK from the header/tabs returns to the content; the next one leaves.
         if (nav !== "hero" && count > 0) {
           focusById("hero")
@@ -147,6 +165,21 @@ export function BrowseScreen({
           <AnimatedLogo className="h-full w-full" runKey={logoRun} delay={0.15} />
         </div>
 
+        <div className="flex items-center gap-3">
+        <AnimatePresence>
+          {show && (
+            <motion.span
+              className="rounded-full px-4 py-2 text-sm font-bold"
+              style={{ background: "var(--ptv-accent)", color: "#17141a" }}
+              initial={{ opacity: 0, scale: 0.6, x: -12 }}
+              animate={{ opacity: 1, scale: 1, x: 0 }}
+              exit={{ opacity: 0, scale: 0.7 }}
+              transition={{ type: "spring", stiffness: 520, damping: 18 }}
+            >
+              {show}
+            </motion.span>
+          )}
+        </AnimatePresence>
         <div role="tablist" aria-label="Categorías" className="flex gap-1 rounded-full p-1" style={{ background: "rgba(255,255,255,0.06)" }}>
           {TABS.map((t) => (
             <button
@@ -167,6 +200,7 @@ export function BrowseScreen({
               <span className="relative">{t.label}</span>
             </button>
           ))}
+        </div>
         </div>
 
         <div className="flex items-center gap-2">
@@ -236,7 +270,7 @@ export function BrowseScreen({
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ ...SPRING, delay: 0.04 }}
                         >
-                          {KIND_LABEL[current.kind].toUpperCase()} · {formatDate(current.publishedAt)}
+                          {tab === "series" ? "SERIE" : `${KIND_LABEL[current.kind].toUpperCase()} · ${formatDate(current.publishedAt)}`}
                         </motion.p>
                         <motion.h2
                           className="line-clamp-4 font-bold leading-tight text-balance" style={{ fontSize: "var(--title)" }}
@@ -256,10 +290,10 @@ export function BrowseScreen({
                             initial={{ opacity: 0, scale: 0.8 }}
                             animate={{ opacity: 1, scale: 1 }}
                             transition={{ type: "spring", stiffness: 520, damping: 16, delay: 0.12 }}
-                            onClick={() => (reading && onReadItem ? onReadItem(current) : onOpenItem(current))}
+                            onClick={() => (tab === "series" ? openSeries(current.title) : reading && onReadItem ? onReadItem(current) : onOpenItem(current))}
                           >
                             {reading ? <FileText className="h-4 w-4" aria-hidden="true" /> : <Play className="h-4 w-4 fill-current" aria-hidden="true" />}
-                            {wide(current) ? null : reading ? "Leer" : progressFraction(current.id) > 0 ? "Continuar" : "Reproducir"}
+                            {wide(current) ? null : tab === "series" ? "Ver episodios" : reading ? "Leer" : progressFraction(current.id) > 0 ? "Continuar" : "Reproducir"}
                             {current.durationSec && !reading && !wide(current) ? <span className="opacity-55">{formatClock(current.durationSec)}</span> : null}
                           </motion.span>
                         )}

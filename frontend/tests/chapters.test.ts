@@ -42,3 +42,13 @@ test("converts Patreon ProseMirror bodies to safe HTML", () => {
 test("strips orphan brackets around timestamps", () => {
   assert.deepEqual(parseChapters("(00:00) Introducción\n(05:00) Juegos"), [{ start: 0, title: "Introducción" }, { start: 300, title: "Juegos" }])
 })
+
+import { seriesOf, groupSeries } from "../src/lib/patreon-tv/series.ts"
+test("derives show names from title patterns", () => {
+  const it = (title: string) => ({ id: title, creatorId: "c", kind: "audio" as const, title, description: "", publishedAt: "", art: "", color: "coral" as const })
+  assert.equal(seriesOf(it("Recarga Activa #5.203/1387 (06/11/2026)")), "Recarga Activa")
+  assert.equal(seriesOf(it("Podcast Reload - Temporada 18, episodio 9")), "Podcast Reload")
+  assert.equal(seriesOf(it("Preguntitas: el consultorio")), "Preguntitas")
+  const g = groupSeries([it("Recarga Activa #1"), it("Recarga Activa #2"), it("Los juegos perdidos de Deconstructeam")])
+  assert.deepEqual(g.map((s) => [s.name, s.items.length]), [["Recarga Activa", 2]])
+})

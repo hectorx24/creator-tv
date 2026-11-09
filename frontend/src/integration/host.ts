@@ -136,6 +136,7 @@ const data: DataPort = {
         art: p.thumbnailUrl || p.thumbnail || p.art || "",
         color: ART_COLORS[i % ART_COLORS.length],
         locked: Boolean(p.isLocked || p.locked),
+        categories: Array.isArray(p.categories) ? p.categories.map(String) : undefined,
       }
     })
     return { items, next }

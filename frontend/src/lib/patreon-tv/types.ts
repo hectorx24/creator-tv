@@ -21,4 +21,5 @@ export interface ContentItem {
   art: string
   color: ArtColor
   locked?: boolean
+  categories?: string[]
 }

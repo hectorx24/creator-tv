@@ -56,7 +56,6 @@ export function CreatorGrid({
           </p>
         )}
         {creators.map((creator, i) => {
-          const count = contentForCreator(creator.id).length
           return (
             <motion.div
               key={creator.id}
@@ -83,9 +82,7 @@ export function CreatorGrid({
               </button>
               <div className="flex max-w-[34vh] flex-col items-center text-center">
                 <h2 className="text-lg font-bold leading-snug text-balance">{creator.name}</h2>
-                <p className="mt-0.5 text-xs font-semibold" style={{ color: "var(--ptv-muted-dim)" }}>
-                  {count} episodios
-                </p>
+
               </div>
             </motion.div>
           )

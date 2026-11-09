@@ -40,7 +40,9 @@ public final class NativeAudioService extends Service {
         AudioAttributes attrs = new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build();
         focus = new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN).setAudioAttributes(attrs).setOnAudioFocusChangeListener(focusListener,handler).build();
         NotificationManager notifications = (NotificationManager)getSystemService(NOTIFICATION_SERVICE);
-        notifications.createNotificationChannel(new NotificationChannel("personal_audio", "Reproducción Patreon", NotificationManager.IMPORTANCE_LOW));
+        NotificationChannel ch = new NotificationChannel("personal_audio", "Reproducción", NotificationManager.IMPORTANCE_LOW);
+        ch.setShowBadge(false); ch.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
+        notifications.createNotificationChannel(ch);
         if (Build.VERSION.SDK_INT >= 33) registerReceiver(noisy,new IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY),Context.RECEIVER_NOT_EXPORTED);
         else registerReceiver(noisy,new IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY));
         handler.post(tick);
@@ -58,6 +60,10 @@ public final class NativeAudioService extends Service {
             @Override public void onSkipToNext() { seek(30000); }
             @Override public void onSkipToPrevious() { seek(-30000); }
         },handler);
+        session.setFlags(MediaSession.FLAG_HANDLES_MEDIA_BUTTONS | MediaSession.FLAG_HANDLES_TRANSPORT_CONTROLS);
+        Intent launch = getPackageManager().getLeanbackLaunchIntentForPackage(getPackageName());
+        if (launch == null) launch = getPackageManager().getLaunchIntentForPackage(getPackageName());
+        if (launch != null) session.setSessionActivity(PendingIntent.getActivity(this,3,launch,PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
         session.setActive(true);
     }
     private PendingIntent command(String action, int request) {
@@ -66,7 +72,7 @@ public final class NativeAudioService extends Service {
     private Notification notification() {
         Intent launch = getPackageManager().getLaunchIntentForPackage(getPackageName());
         Notification.Builder n = new Notification.Builder(this,"personal_audio").setSmallIcon(android.R.drawable.ic_media_play)
-            .setContentTitle(title.isEmpty()?"Patreon TV Personal":title).setContentText(creator).setVisibility(Notification.VISIBILITY_PUBLIC)
+            .setContentTitle(title.isEmpty()?"Creator TV":title).setCategory(Notification.CATEGORY_TRANSPORT).setShowWhen(false).setContentText(creator).setVisibility(Notification.VISIBILITY_PUBLIC)
             .setStyle(session == null ? new Notification.MediaStyle() : new Notification.MediaStyle().setMediaSession(session.getSessionToken()).setShowActionsInCompactView(0,1))
             .addAction(new Notification.Action.Builder(playing?android.R.drawable.ic_media_pause:android.R.drawable.ic_media_play,playing?"Pausar":"Reproducir",command("toggle",1)).build())
             .addAction(new Notification.Action.Builder(android.R.drawable.ic_menu_close_clear_cancel,"Detener",command("stop",2)).build())
@@ -75,6 +81,7 @@ public final class NativeAudioService extends Service {
         return n.build();
     }
     @Override public int onStartCommand(Intent intent, int flags, int startId) {
+        if (intent != null && "play".equals(intent.getAction())) ensureSession();
         startForeground(NOTIFICATION,notification());
         if (intent == null) { stopPlayback(); return START_NOT_STICKY; }
         String action=intent.getAction();
@@ -89,7 +96,7 @@ public final class NativeAudioService extends Service {
                     prepared=true; duration=p.getDuration();
                     long old=getSharedPreferences("personal_progress",0).getLong(id,0);
                     if(old>0&&old<duration-3000) p.seekTo((int)old);
-                    MediaMetadata.Builder mb = new MediaMetadata.Builder().putString(MediaMetadata.METADATA_KEY_TITLE,title).putString(MediaMetadata.METADATA_KEY_ARTIST,creator).putLong(MediaMetadata.METADATA_KEY_DURATION,duration);
+                    MediaMetadata.Builder mb = new MediaMetadata.Builder().putString(MediaMetadata.METADATA_KEY_TITLE,title).putString(MediaMetadata.METADATA_KEY_ARTIST,creator).putString(MediaMetadata.METADATA_KEY_DISPLAY_TITLE,title).putString(MediaMetadata.METADATA_KEY_DISPLAY_SUBTITLE,creator).putString(MediaMetadata.METADATA_KEY_ALBUM,creator).putString(MediaMetadata.METADATA_KEY_MEDIA_ID,id).putLong(MediaMetadata.METADATA_KEY_DURATION,duration);
                     if(!artwork.isEmpty()) { mb.putString(MediaMetadata.METADATA_KEY_ALBUM_ART_URI,artwork).putString(MediaMetadata.METADATA_KEY_DISPLAY_ICON_URI,artwork); }
                     if(session!=null) session.setMetadata(mb.build());
                     loadArtworkBitmap(artwork);
@@ -98,7 +105,7 @@ public final class NativeAudioService extends Service {
                 player.setOnCompletionListener(p -> { position=0; getSharedPreferences("personal_progress",0).edit().putLong(id,0).apply(); prepared=false; releasePlayer(); playing=false; publish(); stopForeground(STOP_FOREGROUND_REMOVE); stopSelf(); });
                 player.setOnErrorListener((p,what,extra) -> { failure="playback"; playing=false; releasePlayer(); publish(); stopForeground(STOP_FOREGROUND_REMOVE); stopSelf(); return true; });
                 player.setDataSource(intent.getStringExtra("url")); player.prepareAsync();
-                MediaMetadata.Builder initMb = new MediaMetadata.Builder().putString(MediaMetadata.METADATA_KEY_TITLE,title).putString(MediaMetadata.METADATA_KEY_ARTIST,creator);
+                MediaMetadata.Builder initMb = new MediaMetadata.Builder().putString(MediaMetadata.METADATA_KEY_TITLE,title).putString(MediaMetadata.METADATA_KEY_ARTIST,creator).putString(MediaMetadata.METADATA_KEY_DISPLAY_TITLE,title).putString(MediaMetadata.METADATA_KEY_DISPLAY_SUBTITLE,creator).putString(MediaMetadata.METADATA_KEY_ALBUM,creator).putString(MediaMetadata.METADATA_KEY_MEDIA_ID,id);
                 if(!artwork.isEmpty()) { initMb.putString(MediaMetadata.METADATA_KEY_ALBUM_ART_URI,artwork).putString(MediaMetadata.METADATA_KEY_DISPLAY_ICON_URI,artwork); }
                 if(session!=null) session.setMetadata(initMb.build());
             } catch(Exception e) { failure="source"; releasePlayer(); stopForeground(STOP_FOREGROUND_REMOVE); stopSelf(); }

@@ -36,6 +36,17 @@ export async function loadCatalog() {
   pages.forEach(([id, p]) => cursors.set(id, p.next))
   loadedAt = Date.now()
   emit()
+  void prefetch()
+}
+
+/** Quietly pull a few more pages per creator after start-up (series need depth). */
+async function prefetch(pages = 5) {
+  for (let i = 0; i < pages; i++) {
+    const ids = creators.map((c) => c.id).filter((id) => cursors.get(id))
+    if (!ids.length) return
+    await new Promise((r) => setTimeout(r, 1500))
+    for (const id of ids) await loadMore(id)
+  }
 }
 
 /** Newest page for every creator; unseen posts are prepended. Deeper pages and positions survive. */
