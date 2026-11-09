@@ -13,6 +13,11 @@ public final class NativeAudioService extends Service {
     private static volatile String id = "", title = "", creator = "", artwork = "", failure = "";
     private static volatile long position, duration;
     private static volatile boolean playing;
+    /** True while the system screensaver (Ambient mode) runs: audio may keep going then. */
+    private static volatile boolean dreaming;
+    private final BroadcastReceiver dreams = new BroadcastReceiver() { @Override public void onReceive(Context c, Intent i) {
+        dreaming = Intent.ACTION_DREAMING_STARTED.equals(i.getAction());
+    } };
     private static volatile float speed = 1f;
     private MediaPlayer player;
     private MediaSession session;
@@ -45,6 +50,8 @@ public final class NativeAudioService extends Service {
         notifications.createNotificationChannel(ch);
         if (Build.VERSION.SDK_INT >= 33) registerReceiver(noisy,new IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY),Context.RECEIVER_NOT_EXPORTED);
         else registerReceiver(noisy,new IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY));
+        IntentFilter df = new IntentFilter(Intent.ACTION_DREAMING_STARTED); df.addAction(Intent.ACTION_DREAMING_STOPPED);
+        if (Build.VERSION.SDK_INT >= 33) registerReceiver(dreams, df, Context.RECEIVER_EXPORTED); else registerReceiver(dreams, df);
         handler.post(tick);
     }
     /** A MediaSession grabs the system "media button" route (AirPods, remote). Creating it for a mere
@@ -114,6 +121,9 @@ public final class NativeAudioService extends Service {
         else if ("toggle".equals(action)) { resumeAfterFocus=false; if (playing) pause(); else resume(); }
         else if ("seek".equals(action)) seek(intent.getIntExtra("delta",0));
         else if ("seekTo".equals(action)) seekToPosition(intent.getIntExtra("position",0));
+        // The app went to the background (HOME / BACK out). Google TV cannot show non-partner apps in its
+        // "now playing" panel, so audio would be unstoppable: pause it — unless the screensaver started.
+        else if ("left".equals(action)) handler.postDelayed(() -> { if (!dreaming && playing) { resumeAfterFocus=false; pause(); } }, 1500);
         else if ("speed".equals(action)) { speed=intent.getFloatExtra("speed",1f); getSharedPreferences("personal_progress",0).edit().putFloat("__speed",speed).apply(); applySpeed(); }
         return START_NOT_STICKY;
     }
@@ -167,6 +177,6 @@ public final class NativeAudioService extends Service {
         }).start();
     }
     @Override public void onTaskRemoved(Intent rootIntent) { if(!playing) stopPlayback(); }
-    @Override public void onDestroy() { save();handler.removeCallbacksAndMessages(null);releasePlayer();manager.abandonAudioFocusRequest(focus);if(session!=null) session.release();unregisterReceiver(noisy);super.onDestroy(); }
+    @Override public void onDestroy() { save();handler.removeCallbacksAndMessages(null);releasePlayer();manager.abandonAudioFocusRequest(focus);if(session!=null) session.release();unregisterReceiver(noisy); try { unregisterReceiver(dreams); } catch (Exception ignored) {}super.onDestroy(); }
     @Override public IBinder onBind(Intent intent) { return null; }
 }

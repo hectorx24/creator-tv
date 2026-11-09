@@ -36,3 +36,8 @@ Intro con logo que se forma sin parpadeo de Login · foco inicial en contenido �
 - Paginación: solo primera página (20 posts) por creador.
 - Diálogo de cerrar sesión, lector con imágenes/enlaces y estado bloqueado: implementados, sin caso real probado.
 - Cast Connect: no necesario (control desde el móvil vía PhoneRemoteServer y MediaSession del audio).
+
+## «Reproduciendo» en el panel de Google TV / salvapantallas (investigado 2026-11-08, no repetir)
+- La sesión de audio es correcta (activa, PLAYING, flags=3, sessionActivity, metadatos, igual que Spotify) y `mediashell` (Cast) la lee.
+- REA de `com.google.android.apps.tv.launcherx` (`coreservices/nowplaying/NowPlayingListener`, filtro `gdj` caso 9 + tabla `glm.a`): el launcher solo muestra la tarjeta «now playing» si el **SHA-256 del package** está en una lista fija de 1000 apps socias. Comprobado: Spotify/Amazon Music/YouTube Music sí; Creator TV, Netflix, YouTube, Jellyfin, SmartTube, Plex no.
+- Conclusión: imposible sin suplantar el package de otra app (descartado). Alternativas: `NowPlayingDreamService` propio y el control desde el móvil (PhoneRemoteServer :8475).

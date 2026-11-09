@@ -130,6 +130,13 @@ public final class NativeAudioBridge {
         } catch (Exception ignored) {}
     }
 
+    /** The WebView became hidden: the service pauses unless the screensaver is what covered it. */
+    @JavascriptInterface
+    public void appHidden() {
+        if (!NativeAudioService.status().contains("\"playing\":true")) return;
+        send("left", 0);
+    }
+
     @JavascriptInterface
     public void toggle() {
         send("toggle", 0);

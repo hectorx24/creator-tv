@@ -2,7 +2,7 @@
 
 A personal 10-foot client for **Android TV / Google TV** (built and tested on Chromecast with Google TV HD) to watch, listen to and read the content of the creators you support. It talks to your own **Patreon** membership from the TV; it is an independent personal project, not affiliated with Patreon.
 
-**Latest build:** see [Releases](https://github.com/hectorx24/creator-tv/releases) → `CreatorTV-4.3.apk`.
+**Latest build:** see [Releases](https://github.com/hectorx24/creator-tv/releases) → `CreatorTV-4.3.1.apk`.
 
 > No screenshots on purpose: every screen shows private, paid creator content.
 
@@ -10,7 +10,7 @@ A personal 10-foot client for **Android TV / Google TV** (built and tested on Ch
 
 - **Library** — one card per post in an "album" carousel. Videos keep a true 16:9 thumbnail, podcasts a square cover; the card size never changes, only the image/text split. Tabs: *Todo · Series · Vídeos · Audio · Texto* (series are grouped from the show names in post titles). New posts load automatically when you come back to the app; older ones page in as you scroll.
 - **Video** — cover until the first frame, resume where you left off, ←/→ seek (each press adds 10 s, the jump lands when you stop), OK play/pause, ⚙ menu (↓) with speed 0.75–2×, chapters parsed from timestamps in the description, and visual dimming (auto after a pause, or manual). Headset/AirPods media buttons work. The screen is kept awake only while a video plays, so the TV screensaver still runs otherwise.
-- **Audio** — native foreground service with MediaSession: keeps playing after HOME, BACK or the screensaver. Same remote model as video (←/→ seek, OK play/pause, ↓ speed). Material 3 Expressive wavy progress bar; mini-player while you browse.
+- **Audio** — native foreground service with MediaSession: keeps playing under the screensaver; leaving the app (HOME/BACK) pauses it, because Google TV only shows system media controls for an allowlist of partner apps (see docs/HANDOFF.md). Same remote model as video (←/→ seek, OK play/pause, ↓ speed). Material 3 Expressive wavy progress bar; mini-player while you browse.
 - **Texto** — full post bodies (Patreon's ProseMirror `content_json_string`) rendered as clean HTML: paragraphs, bold, links, lists, images; distinct empty / locked / preview / error states.
 - **Polish** — logo that assembles itself on launch (no login flash when a session exists), spring physics on focus and transitions (transform/opacity only for smooth playback on Chromecast HD), optional UI sounds (off by default, ⚙ on the creators screen), logout behind a confirmation.
 
@@ -40,7 +40,7 @@ cd frontend && npm ci && npm test && npm run build
 ```bash
 adb pair <tv-ip>:<pair-port>        # Settings → Developer options → Wireless debugging
 adb connect <tv-ip>:<port>
-adb install -r CreatorTV-4.3.apk    # -r keeps your session
+adb install -r CreatorTV-4.3.1.apk    # -r keeps your session
 ```
 
 ## Credits

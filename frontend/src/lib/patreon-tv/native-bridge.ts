@@ -19,6 +19,7 @@ export interface PersonalAudioBridge {
   postBody?: (id: string) => void
   setKeepAwake?: (on: boolean) => void
   setSpeed?: (speed: number) => void
+  appHidden?: () => void
   showKeyboard?: () => void
   hideKeyboard?: () => void
 }
