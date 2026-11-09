@@ -62,7 +62,7 @@ export function CreatorGrid({
               className="flex flex-col items-center gap-[2vh]"
               initial={{ opacity: 0, y: 40, scale: 0.8 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              transition={{ type: "spring", stiffness: 300, damping: 16, delay: 0.15 + stagger(i) }}
+              transition={{ type: "spring", stiffness: 150, damping: 20, delay: 0.15 + stagger(i) }}
             >
               <button
                 type="button"
@@ -121,7 +121,7 @@ function SettingsMenu({ onLogout }: { onLogout: () => void }) {
         className="flex h-10 w-10 items-center justify-center rounded-full"
         style={{ background: "var(--ptv-surface)", color: "var(--ptv-muted)" }}
         animate={{ rotate: open ? 90 : 0 }}
-        transition={{ type: "spring", stiffness: 380, damping: 16 }}
+        transition={{ type: "spring", stiffness: 190, damping: 22 }}
       >
         <Settings2 className="h-4 w-4" aria-hidden="true" />
       </motion.button>
@@ -132,8 +132,8 @@ function SettingsMenu({ onLogout }: { onLogout: () => void }) {
             style={{ background: "rgba(24,24,28,0.97)", border: "1px solid var(--ptv-line)", transformOrigin: "top right" }}
             initial={{ opacity: 0, scale: 0.8, y: -6 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.12 } }}
-            transition={{ type: "spring", stiffness: 520, damping: 24 }}
+            exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.22 } }}
+            transition={{ type: "spring", stiffness: 260, damping: 26 }}
           >
             <button
               type="button"

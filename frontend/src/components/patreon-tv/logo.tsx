@@ -31,7 +31,7 @@ export function AnimatedLogo({ className, runKey = 0, delay = 0 }: { className?:
         style={{ originX: "64px", originY: "64px" }}
         initial={{ scale: 0.55, opacity: 0, rotate: -8 }}
         animate={{ scale: 1, opacity: 1, rotate: 0 }}
-        transition={{ type: "spring", stiffness: 210, damping: 18, delay: d }}
+        transition={{ type: "spring", stiffness: 120, damping: 18, delay: d }}
       />
       <motion.path
         d="M35 91V61a29 29 0 0 1 58 0v30"
@@ -48,7 +48,7 @@ export function AnimatedLogo({ className, runKey = 0, delay = 0 }: { className?:
         style={{ originX: "64px", originY: "68px" }}
         initial={{ scale: 0, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        transition={{ type: "spring", stiffness: 480, damping: 14, delay: d + 0.78 }}
+        transition={{ type: "spring", stiffness: 240, damping: 25, delay: d + 0.78 }}
       />
     </svg>
   )

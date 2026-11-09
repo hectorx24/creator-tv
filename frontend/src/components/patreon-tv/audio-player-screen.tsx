@@ -131,7 +131,7 @@ export function AudioPlayerScreen({
             className="aspect-square flex-shrink-0 overflow-hidden rounded-[32px]"
             style={{ height: "58vh", boxShadow: "0 40px 90px -30px rgba(0,0,0,0.9)" }}
             animate={{ scale: playing ? 1 : 0.92, x: nudgeDir * 10 }}
-            transition={{ type: "spring", stiffness: 260, damping: 16 }}
+            transition={{ type: "spring", stiffness: 130, damping: 18 }}
           >
             <Artwork src={item.art} color={item.color} alt="" className="h-full w-full" />
           </motion.div>
@@ -148,7 +148,7 @@ export function AudioPlayerScreen({
                 <motion.span
                   className="origin-left font-semibold"
                   animate={{ scale: scrub !== null ? 1.3 : 1, color: scrub !== null ? "#ffffff" : "rgba(255,255,255,0.55)" }}
-                  transition={{ type: "spring", stiffness: 500, damping: 15 }}
+                  transition={{ type: "spring", stiffness: 250, damping: 25 }}
                 >
                   {formatClock(shown)}
                 </motion.span>
@@ -161,7 +161,7 @@ export function AudioPlayerScreen({
                       initial={{ opacity: 0, y: 6, scale: 0.7 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, scale: 0.8 }}
-                      transition={{ type: "spring", stiffness: 600, damping: 18 }}
+                      transition={{ type: "spring", stiffness: 300, damping: 28 }}
                     >
                       {delta > 0 ? "+" : "−"}
                       {formatClock(Math.abs(delta))}
@@ -177,14 +177,14 @@ export function AudioPlayerScreen({
                 className="flex h-[9vh] w-[9vh] items-center justify-center rounded-full"
                 style={{ background: "var(--ptv-text)", color: "#17141a" }}
                 animate={{ scale: playing ? 1 : 1.06 }}
-                transition={{ type: "spring", stiffness: 420, damping: 12 }}
+                transition={{ type: "spring", stiffness: 210, damping: 23 }}
               >
                 <motion.span
                   key={playing ? "pause" : "play"}
                   className="flex"
                   initial={{ scale: 0.3, rotate: playing ? -90 : 90, opacity: 0 }}
                   animate={{ scale: 1, rotate: 0, opacity: 1 }}
-                  transition={{ type: "spring", stiffness: 520, damping: 13 }}
+                  transition={{ type: "spring", stiffness: 260, damping: 26 }}
                 >
                   {playing ? <Pause className="h-7 w-7 fill-current" /> : <Play className="h-7 w-7 fill-current" />}
                 </motion.span>
@@ -202,8 +202,8 @@ export function AudioPlayerScreen({
                     style={{ background: "var(--ptv-text)", color: "#17141a", transformOrigin: "left center" }}
                     initial={{ opacity: 0, scale: 0.6, x: -10 }}
                     animate={{ opacity: 1, scale: 1, x: 0 }}
-                    exit={{ opacity: 0, scale: 0.8, transition: { duration: 0.12 } }}
-                    transition={{ type: "spring", stiffness: 520, damping: 20 }}
+                    exit={{ opacity: 0, scale: 0.8, transition: { duration: 0.22 } }}
+                    transition={{ type: "spring", stiffness: 260, damping: 26 }}
                   >
                     <Gauge className="h-4 w-4" />
                     Velocidad
@@ -212,7 +212,7 @@ export function AudioPlayerScreen({
                       className="tabular-nums"
                       initial={{ scale: 0.5, opacity: 0 }}
                       animate={{ scale: 1, opacity: 1 }}
-                      transition={{ type: "spring", stiffness: 600, damping: 14 }}
+                      transition={{ type: "spring", stiffness: 300, damping: 28 }}
                     >
                       {speedLabel(speed)}
                     </motion.span>

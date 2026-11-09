@@ -76,7 +76,7 @@ export function MiniPlayer({
         className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full"
         style={{ background: "var(--ptv-text)", color: "#17141a" }}
       >
-        <motion.span key={playing ? "pause" : "play"} className="flex" initial={{ scale: 0.3, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring", stiffness: 520, damping: 13 }}>
+        <motion.span key={playing ? "pause" : "play"} className="flex" initial={{ scale: 0.3, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring", stiffness: 260, damping: 26 }}>
               {playing ? <Pause className="h-4 w-4 fill-current" /> : <Play className="h-4 w-4 fill-current" />}
             </motion.span>
       </button>

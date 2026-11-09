@@ -40,7 +40,7 @@ export function ConfirmDialog({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      transition={{ duration: 0.16 }}
+      transition={{ duration: 0.26 }}
       style={{ background: "rgba(6,6,8,0.78)" }}
     >
       <motion.div
@@ -49,7 +49,7 @@ export function ConfirmDialog({
         aria-labelledby="ptv-dialog-title"
         initial={{ opacity: 0, y: 16, scale: 0.97 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ type: "spring", stiffness: 420, damping: 34 }}
+        transition={{ type: "spring", stiffness: 210, damping: 34 }}
         className="flex w-[min(560px,80vw)] flex-col gap-4 rounded-3xl p-8"
         style={{ background: "var(--ptv-surface)", border: "1px solid var(--ptv-line)", boxShadow: "0 30px 80px rgba(0,0,0,0.55)" }}
       >

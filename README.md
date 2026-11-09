@@ -2,7 +2,7 @@
 
 A personal 10-foot client for **Android TV / Google TV** (built and tested on Chromecast with Google TV HD) to watch, listen to and read the content of the creators you support. It talks to your own **Patreon** membership from the TV; it is an independent personal project, not affiliated with Patreon.
 
-**Latest build:** see [Releases](https://github.com/hectorx24/creator-tv/releases) → `CreatorTV-4.3.1.apk`.
+**Latest build:** see [Releases](https://github.com/hectorx24/creator-tv/releases) → `CreatorTV-4.3.2.apk`.
 
 > No screenshots on purpose: every screen shows private, paid creator content.
 
@@ -40,7 +40,7 @@ cd frontend && npm ci && npm test && npm run build
 ```bash
 adb pair <tv-ip>:<pair-port>        # Settings → Developer options → Wireless debugging
 adb connect <tv-ip>:<port>
-adb install -r CreatorTV-4.3.1.apk    # -r keeps your session
+adb install -r CreatorTV-4.3.2.apk    # -r keeps your session
 ```
 
 ## Credits

@@ -410,7 +410,7 @@ export function VideoOverlay({
               <motion.p className="text-xs font-bold tracking-[0.22em]" style={{ color: "var(--ptv-accent)" }} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
                 {creator?.name?.toUpperCase()}
               </motion.p>
-              <motion.h1 className="ptv-h1 mt-2 max-w-[70%] font-bold text-balance" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.16, type: "spring", stiffness: 300, damping: 30 }}>
+              <motion.h1 className="ptv-h1 mt-2 max-w-[70%] font-bold text-balance" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.16, type: "spring", stiffness: 150, damping: 30 }}>
                 {item.title}
               </motion.h1>
               {failed ? (
@@ -452,7 +452,7 @@ export function VideoOverlay({
             {/* Material 3 Expressive-style timeline: active track, gap, pill handle; grows while seeking. */}
             <div className="mt-5 flex items-center gap-4">
               <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full" style={{ background: "var(--ptv-text)", color: "#17141a" }}>
-                <motion.span key={playing ? "pause" : "play"} className="flex" initial={{ scale: 0.3, rotate: playing ? -90 : 90, opacity: 0 }} animate={{ scale: 1, rotate: 0, opacity: 1 }} transition={{ type: "spring", stiffness: 520, damping: 13 }}>
+                <motion.span key={playing ? "pause" : "play"} className="flex" initial={{ scale: 0.3, rotate: playing ? -90 : 90, opacity: 0 }} animate={{ scale: 1, rotate: 0, opacity: 1 }} transition={{ type: "spring", stiffness: 260, damping: 26 }}>
                   {playing ? <Pause className="h-5 w-5 fill-current" /> : <Play className="h-5 w-5 fill-current" />}
                 </motion.span>
               </div>
@@ -471,7 +471,7 @@ export function VideoOverlay({
                           style={{ left: `${(c.start / duration) * 100}%` }}
                           initial={{ opacity: 0, scaleY: 0 }}
                           animate={{ opacity: 1, scaleY: 1 }}
-                          transition={{ type: "spring", stiffness: 500, damping: 18, delay: i * 0.015 }}
+                          transition={{ type: "spring", stiffness: 250, damping: 25, delay: i * 0.015 }}
                         />
                       ),
                     )}
@@ -483,7 +483,7 @@ export function VideoOverlay({
                     style={{ left: `${pct}%` }}
                     initial={{ scaleY: 0 }}
                     animate={{ scaleY: 1 }}
-                    transition={{ type: "spring", stiffness: 600, damping: 16 }}
+                    transition={{ type: "spring", stiffness: 300, damping: 28 }}
                   />
                 )}
               </div>
@@ -494,7 +494,7 @@ export function VideoOverlay({
                 <motion.div
                   className="flex h-11 w-11 items-center justify-center rounded-full"
                   animate={{ rotate: mode !== "play" ? 90 : 0, scale: mode !== "play" ? 1.08 : 1 }}
-                  transition={{ type: "spring", stiffness: 380, damping: 22 }}
+                  transition={{ type: "spring", stiffness: 190, damping: 22 }}
                   style={{ background: mode !== "play" ? "var(--ptv-text)" : "rgba(255,255,255,0.12)", color: mode !== "play" ? "#17141a" : "var(--ptv-text)" }}
                   aria-label="Opciones"
                 >
@@ -507,8 +507,8 @@ export function VideoOverlay({
                       style={{ background: "rgba(24,24,28,0.96)", border: "1px solid var(--ptv-line)", transformOrigin: "bottom right" }}
                       initial={{ opacity: 0, scale: 0.85, y: 8 }}
                       animate={{ opacity: 1, scale: 1, y: 0 }}
-                      exit={{ opacity: 0, scale: 0.9, y: 6, transition: { duration: 0.12 } }}
-                      transition={{ type: "spring", stiffness: 520, damping: 32 }}
+                      exit={{ opacity: 0, scale: 0.9, y: 6, transition: { duration: 0.22 } }}
+                      transition={{ type: "spring", stiffness: 260, damping: 32 }}
                     >
                       {PANEL.map((key, i) => {
                         const on = panelIndex === i
@@ -525,7 +525,7 @@ export function VideoOverlay({
                                 layoutId="gear-pill"
                                 className="absolute inset-0 rounded-2xl"
                                 style={{ background: "var(--ptv-text)" }}
-                                transition={{ type: "spring", stiffness: 600, damping: 38 }}
+                                transition={{ type: "spring", stiffness: 300, damping: 38 }}
                               />
                             )}
                             <Icon className="relative h-4 w-4" />
@@ -549,7 +549,7 @@ export function VideoOverlay({
                   initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 8 }}
-                  transition={{ type: "spring", stiffness: 380, damping: 32 }}
+                  transition={{ type: "spring", stiffness: 190, damping: 32 }}
                 >
                   {chapters.map((c, i) => {
                     const offset = Math.max(0, chapterIndex - 2)

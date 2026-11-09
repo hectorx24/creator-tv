@@ -174,7 +174,7 @@ export function BrowseScreen({
               initial={{ opacity: 0, scale: 0.6, x: -12 }}
               animate={{ opacity: 1, scale: 1, x: 0 }}
               exit={{ opacity: 0, scale: 0.7 }}
-              transition={{ type: "spring", stiffness: 520, damping: 18 }}
+              transition={{ type: "spring", stiffness: 260, damping: 26 }}
             >
               {show}
             </motion.span>
@@ -195,7 +195,7 @@ export function BrowseScreen({
               style={{ color: tab === t.id ? "#17141a" : "var(--ptv-muted)" }}
             >
               {tab === t.id && (
-                <motion.span layoutId="tab-pill" className="absolute inset-0 rounded-full" style={{ background: "var(--ptv-text)" }} transition={{ type: "spring", stiffness: 520, damping: 20, mass: 0.8 }} />
+                <motion.span layoutId="tab-pill" className="absolute inset-0 rounded-full" style={{ background: "var(--ptv-text)" }} transition={{ type: "spring", stiffness: 260, damping: 26, mass: 0.8 }} />
               )}
               <span className="relative">{t.label}</span>
             </button>
@@ -258,7 +258,7 @@ export function BrowseScreen({
                       className="flex h-full"
                       initial={{ opacity: 0, x: direction * 90 }}
                       animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: direction * -90, transition: { duration: 0.14 } }}
+                      exit={{ opacity: 0, x: direction * -90, transition: { duration: 0.24 } }}
                       transition={SPRING}
                     >
                       <HeroArt item={current} />
@@ -289,7 +289,7 @@ export function BrowseScreen({
                             className="ptv-cta mt-1 flex w-fit items-center gap-2 rounded-full px-6 py-3 text-sm font-bold"
                             initial={{ opacity: 0, scale: 0.8 }}
                             animate={{ opacity: 1, scale: 1 }}
-                            transition={{ type: "spring", stiffness: 520, damping: 16, delay: 0.12 }}
+                            transition={{ type: "spring", stiffness: 260, damping: 26, delay: 0.12 }}
                             onClick={() => (tab === "series" ? openSeries(current.title) : reading && onReadItem ? onReadItem(current) : onOpenItem(current))}
                           >
                             {reading ? <FileText className="h-4 w-4" aria-hidden="true" /> : <Play className="h-4 w-4 fill-current" aria-hidden="true" />}
@@ -315,7 +315,7 @@ export function BrowseScreen({
                     key={it.id}
                     className="h-[6px] rounded-full"
                     animate={{ width: on ? 26 : 6, opacity: on ? 1 : 0.3 }}
-                    transition={{ type: "spring", stiffness: 500, damping: 22 }}
+                    transition={{ type: "spring", stiffness: 250, damping: 25 }}
                     style={{ background: on ? "var(--ptv-text)" : "#fff" }}
                   />
                 )
@@ -328,7 +328,7 @@ export function BrowseScreen({
   )
 }
 
-const SPRING = { type: "spring", stiffness: 420, damping: 24, mass: 0.9 } as const
+const SPRING = { type: "spring", stiffness: 210, damping: 24, mass: 0.9 } as const
 
 /** Square-ish art stays square, banners stay wide; never cropped beyond 1:1…16:9. */
 function fit(r?: number, kind?: string) {
@@ -376,7 +376,7 @@ function Peek({ item, dir, side, onClick }: { item?: ContentItem; dir: number; s
             style={{ width: "8vw" }}
             initial={{ opacity: 0, x: dir * 70, scale: 0.85 }}
             animate={{ opacity: 0.4, x: 0, scale: 1 }}
-            exit={{ opacity: 0, x: dir * -70, scale: 0.85, transition: { duration: 0.14 } }}
+            exit={{ opacity: 0, x: dir * -70, scale: 0.85, transition: { duration: 0.24 } }}
             transition={SPRING}
             aria-label={item.title}
           >
