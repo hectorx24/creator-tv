@@ -19,6 +19,8 @@ export interface AuthPort {
 export interface DataPort {
   listCreators(): Promise<Creator[]>
   listContent(creatorId: string): Promise<ContentItem[]>
+  /** Optional paging: `cursor` from the previous page; `next` is null at the end. */
+  listContentPage?(creatorId: string, cursor?: string | null): Promise<{ items: ContentItem[]; next: string | null }>
   /** Optional. Without it, search filters the already loaded catalog locally. */
   search?(query: string): Promise<ContentItem[]>
 }

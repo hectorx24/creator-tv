@@ -87,6 +87,7 @@ public final class CatalogExtension {
         return cursor.isEmpty() || cursor.equals("null") ? null : original.replaceAll("([&?])page\\[cursor\\]=[^&]*", "$1").replaceAll("[&?]$", "") + (original.contains("?") ? "&" : "?") + "page[cursor]=" + URLEncoder.encode(cursor, "UTF-8");
     }
     public static String campaigns(Object api, String url) throws Exception {
+        lastApi=api;
         JSONObject first = null; JSONArray included = new JSONArray(); JSONArray data = new JSONArray(); Set<String> seen = new HashSet<>();
         String target = url;
         for (int page = 0; target != null; page++) {
@@ -103,7 +104,32 @@ public final class CatalogExtension {
         first.put("included", included).put("data", data);
         return first.toString();
     }
+    private static volatile Object lastApi;
+    private static final Map<String,String> bodies = new LinkedHashMap<String,String>(48,0.75f,true) { protected boolean removeEldestEntry(Map.Entry<String,String> e) { return size()>40; } };
+    /** Full post body for the reader/chapters. The list endpoint returns content=null, only /api/posts/{id} has it.
+     *  Returns {"id","content","teaser","canView","error"}; never exposes URLs, cookies or headers. */
+    public static String postBody(String id) {
+        JSONObject out=new JSONObject();
+        try {
+            out.put("id",id==null?"":id);
+            if(id==null||!id.matches("[0-9]{1,20}")) return out.put("error","invalid").toString();
+            synchronized(bodies){ String c=bodies.get(id); if(c!=null) return c; }
+            Object api=lastApi; if(api==null) return out.put("error","not_ready").toString();
+            JSONObject j=new JSONObject(original(api,"https://www.patreon.com/api/posts/"+id+"?fields[post]=content,content_json_string,teaser_text,current_user_can_view,title&json-api-version=1.0"));
+            JSONObject data=j.optJSONObject("data"); JSONObject a=data==null?null:data.optJSONObject("attributes");
+            if(a==null) return out.put("error","empty").toString();
+            String content=a.isNull("content")?"":a.optString("content",""), teaser=a.isNull("teaser_text")?"":a.optString("teaser_text","");
+            String json=a.isNull("content_json_string")?"":a.optString("content_json_string","");
+            out.put("contentJson",json.length()>400000?"":json);
+            out.put("content",content).put("teaser",teaser).put("canView",a.optBoolean("current_user_can_view",true)).put("error","");
+            String r=out.toString(); synchronized(bodies){ bodies.put(id,r); } return r;
+        } catch(Exception e) {
+            String m=String.valueOf(e.getMessage());
+            try { return out.put("error", m.contains("401")||m.contains("403")?"locked":"network").toString(); } catch(Exception x) { return "{\"error\":\"network\"}"; }
+        }
+    }
     public static String posts(Object api, String url) throws Exception {
+        lastApi=api;
         String target = url;
         for (String part : new URI(url).getRawQuery().split("&")) {
             if (part.startsWith("page[cursor]=")) {
@@ -144,6 +170,7 @@ public final class CatalogExtension {
         post.put("postType", postType);
 
         String desc = attrs.isNull("content") ? "" : attrs.optString("content", "");
+        if ((desc.isEmpty() || "null".equalsIgnoreCase(desc)) && !attrs.isNull("teaser_text")) desc = attrs.optString("teaser_text", "");
         if ("null".equalsIgnoreCase(desc) || "undefined".equalsIgnoreCase(desc)) desc = "";
         post.put("description", desc);
 

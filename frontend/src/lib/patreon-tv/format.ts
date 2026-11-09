@@ -24,5 +24,5 @@ export function formatDate(iso: string) {
 export const KIND_LABEL: Record<string, string> = {
   video: "Vídeo",
   audio: "Audio",
-  text: "Texto",
+  text: "Publicación",
 }

@@ -16,6 +16,11 @@ export interface PersonalAudioBridge {
   seekTo?: (...args: unknown[]) => unknown
   stop?: (...args: unknown[]) => unknown
   status?: (...args: unknown[]) => NativeAudioStatus | Promise<NativeAudioStatus>
+  postBody?: (id: string) => void
+  setKeepAwake?: (on: boolean) => void
+  setSpeed?: (speed: number) => void
+  showKeyboard?: () => void
+  hideKeyboard?: () => void
 }
 
 declare global { interface Window { PersonalAudio?: PersonalAudioBridge } }
@@ -23,7 +28,7 @@ declare global { interface Window { PersonalAudio?: PersonalAudioBridge } }
 export function getAudioBridge() { return typeof window !== "undefined" ? window.PersonalAudio : undefined }
 export function sendAudioCommand(command: keyof PersonalAudioBridge, ...args: unknown[]) {
   const fn = getAudioBridge()?.[command]
-  return typeof fn === "function" ? fn(...args) : undefined
+  return typeof fn === "function" ? (fn as (...a: unknown[]) => unknown)(...args) : undefined
 }
 
 export const API_ENDPOINTS = {

@@ -3,6 +3,7 @@ import { spring, exitTween } from "@/lib/patreon-tv/motion-tokens"
 import { Pause, Play, X } from "lucide-react"
 import type { ContentItem } from "@/lib/patreon-tv/types"
 import { Artwork } from "./artwork"
+import { WavyProgress } from "./wavy-progress"
 import { formatClock } from "@/lib/patreon-tv/format"
 
 /**
@@ -60,8 +61,8 @@ export function MiniPlayer({
         </span>
         <span className="block min-w-0 flex-1">
           <span className="block truncate text-sm font-semibold">{item.title}</span>
-          <span className="mt-1.5 block h-1 w-full overflow-hidden rounded-full" style={{ background: "var(--ptv-line)" }}>
-            <span className="ptv-mini-progress block" style={{ transform: `scaleX(${ratio})` }} />
+          <span className="mt-1.5 block w-full">
+            <WavyProgress value={ratio} playing={playing} thick={3} />
           </span>
         </span>
       </button>
@@ -75,7 +76,9 @@ export function MiniPlayer({
         className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full"
         style={{ background: "var(--ptv-text)", color: "#17141a" }}
       >
-        {playing ? <Pause className="h-4 w-4 fill-current" /> : <Play className="h-4 w-4 fill-current" />}
+        <motion.span key={playing ? "pause" : "play"} className="flex" initial={{ scale: 0.3, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring", stiffness: 520, damping: 13 }}>
+              {playing ? <Pause className="h-4 w-4 fill-current" /> : <Play className="h-4 w-4 fill-current" />}
+            </motion.span>
       </button>
 
       <button

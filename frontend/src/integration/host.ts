@@ -11,38 +11,8 @@ import type {
 } from "./types"
 import type { ContentItem, Creator, ArtColor, ContentKind } from "@/lib/patreon-tv/types"
 import { creatorById } from "./catalog"
-import { CREATORS, CONTENT, contentForCreator as demoContentForCreator } from "@/demo/demo-data"
 
 const ART_COLORS: ArtColor[] = ["coral", "gold", "purple", "green", "slate"]
-
-let demoActive = typeof window !== "undefined" && window.localStorage?.getItem("ptv_demo_active") === "true"
-
-export function isDemoActive(): boolean {
-  return demoActive
-}
-
-let demoAudioTimer: ReturnType<typeof setInterval> | null = null
-
-function stopDemoAudioTimer() {
-  if (demoAudioTimer) {
-    clearInterval(demoAudioTimer)
-    demoAudioTimer = null
-  }
-}
-
-function startDemoAudioTimer() {
-  stopDemoAudioTimer()
-  demoAudioTimer = setInterval(() => {
-    if (audioStatus.state !== "playing") return
-    const next = audioStatus.position + 1
-    if (next >= audioStatus.duration) {
-      updateAudioStatus({ position: audioStatus.duration, state: "paused" })
-      stopDemoAudioTimer()
-    } else {
-      updateAudioStatus({ position: next })
-    }
-  }, 1000)
-}
 
 function stripHtml(html: string): string {
   if (!html) return ""
@@ -81,7 +51,6 @@ function classifyPostKind(post: any): ContentKind {
 // ==========================================
 const auth: AuthPort = {
   async isAuthenticated(): Promise<boolean> {
-    if (demoActive) return true
     try {
       const res = await fetch("/api/auth/status")
       if (!res.ok) return false
@@ -93,18 +62,6 @@ const auth: AuthPort = {
   },
 
   async login(credentials: LoginCredentials): Promise<void> {
-    if (credentials.method === "session" && credentials.sessionId.trim().toLowerCase() === "demo") {
-      demoActive = true
-      try {
-        window.localStorage?.setItem("ptv_demo_active", "true")
-      } catch {}
-      return
-    }
-    demoActive = false
-    try {
-      window.localStorage?.removeItem("ptv_demo_active")
-    } catch {}
-
     if (credentials.method === "password") {
       const res = await fetch("/api/auth/login", {
         method: "POST",
@@ -129,11 +86,6 @@ const auth: AuthPort = {
   },
 
   async logout(): Promise<void> {
-    demoActive = false
-    try {
-      window.localStorage?.removeItem("ptv_demo_active")
-    } catch {}
-    stopDemoAudioTimer()
     try {
       await fetch("/api/auth/logout", { method: "POST" })
     } catch {}
@@ -145,8 +97,6 @@ const auth: AuthPort = {
 // ==========================================
 const data: DataPort = {
   async listCreators(): Promise<Creator[]> {
-    if (demoActive) return CREATORS
-
     const res = await fetch("/api/campaigns")
     if (!res.ok) throw new Error("No se pudieron cargar los creadores.")
     const raw = await res.json()
@@ -161,21 +111,20 @@ const data: DataPort = {
   },
 
   async listContent(creatorId: string): Promise<ContentItem[]> {
-    if (demoActive) return demoContentForCreator(creatorId)
+    return (await data.listContentPage!(creatorId, null)).items
+  },
 
-    // CRITICAL: ?videoOnly=false is mandatory so NanoHTTPD PatreonServer
-    // does not discard podcasts/audio posts (fixes AnaitGames 0 posts regression!)
-    const res = await fetch(`/api/campaigns/${encodeURIComponent(creatorId)}/posts?videoOnly=false`)
+  async listContentPage(creatorId: string, cursor?: string | null) {
+    // ?videoOnly=false is mandatory so the native server keeps podcast/audio posts.
+    const q = cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""
+    const res = await fetch(`/api/campaigns/${encodeURIComponent(creatorId)}/posts?videoOnly=false${q}`, { cache: "no-store" })
     if (!res.ok) throw new Error("No se pudieron cargar las publicaciones.")
     const raw = await res.json()
     const posts: any[] = Array.isArray(raw) ? raw : raw.posts || []
-    return posts.map((p, i) => {
+    const next: string | null = Array.isArray(raw) ? null : raw.nextCursor || null
+    const items = posts.map((p, i): ContentItem => {
       const kind = classifyPostKind(p)
-      const durationSec = p.durationSec
-        ? Number(p.durationSec)
-        : p.duration
-          ? Math.round(Number(p.duration) / 1000)
-          : undefined
+      const durationSec = p.durationSec ? Number(p.durationSec) : p.duration ? Math.round(Number(p.duration) / 1000) : undefined
       return {
         id: String(p.id),
         creatorId,
@@ -189,19 +138,7 @@ const data: DataPort = {
         locked: Boolean(p.isLocked || p.locked),
       }
     })
-  },
-
-  async search(query: string): Promise<ContentItem[]> {
-    if (demoActive) {
-      const q = query.toLowerCase()
-      return CONTENT.filter(
-        (item) =>
-          item.title.toLowerCase().includes(q) ||
-          item.description.toLowerCase().includes(q) ||
-          CREATORS.find((c) => c.id === item.creatorId)?.name.toLowerCase().includes(q),
-      )
-    }
-    return []
+    return { items, next }
   },
 }
 
@@ -236,7 +173,6 @@ function ensureAudioPoller() {
   if (audioPoller) return
   audioPoller = setInterval(() => {
     if (typeof window === "undefined" || !window.PersonalAudio?.status) return
-    if (demoActive) return // Demo manages simulated status timer
     try {
       const raw = window.PersonalAudio.status()
       const st = typeof raw === "string" ? JSON.parse(raw) : raw
@@ -279,13 +215,6 @@ const audio: AudioPort = {
     // Stop any video playing first
     video.close()
 
-    if (demoActive) {
-      const dur = item.durationSec || 180
-      updateAudioStatus({ state: "playing", position: 0, duration: dur, error: undefined })
-      startDemoAudioTimer()
-      return
-    }
-
     updateAudioStatus({ state: "loading", position: 0, duration: item.durationSec || 0, error: undefined })
 
     try {
@@ -312,32 +241,23 @@ const audio: AudioPort = {
     }
   },
   toggle() {
-    if (demoActive) {
-      if (audioStatus.state === "playing") {
-        updateAudioStatus({ state: "paused" })
-        stopDemoAudioTimer()
-      } else {
-        updateAudioStatus({ state: "playing" })
-        startDemoAudioTimer()
-      }
-      return
-    }
     window.PersonalAudio?.toggle?.()
   },
   seekTo(seconds: number) {
-    if (demoActive) {
-      updateAudioStatus({ position: Math.max(0, Math.min(audioStatus.duration, seconds)) })
-      return
-    }
     window.PersonalAudio?.seekTo?.(Math.round(seconds * 1000))
   },
   stop() {
-    if (demoActive) {
-      stopDemoAudioTimer()
-      updateAudioStatus({ state: "closed", position: 0, duration: 0, error: undefined })
-      return
+    // Only touch the native service when audio really exists: starting it just to stop would
+    // create a MediaSession that steals the headset/remote media keys from the video player.
+    let active = audioStatus.state !== "closed"
+    try {
+      const raw = window.PersonalAudio?.status?.()
+      const st = typeof raw === "string" ? JSON.parse(raw) : raw
+      active = active || Boolean(st?.id)
+    } catch {
+      /* ignore */
     }
-    window.PersonalAudio?.stop?.()
+    if (active) window.PersonalAudio?.stop?.()
     updateAudioStatus({ state: "closed", position: 0, duration: 0, error: undefined })
   },
 }

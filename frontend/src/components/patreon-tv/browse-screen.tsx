@@ -3,20 +3,21 @@ import { AnimatePresence, motion } from "motion/react"
 import { spring, exitTween } from "@/lib/patreon-tv/motion-tokens"
 import { Lock, Play, Search, ChevronDown, FileText } from "lucide-react"
 import type { ContentItem, ContentKind } from "@/lib/patreon-tv/types"
-import { creatorById } from "@/integration/catalog"
+import { creatorById, loadMore } from "@/integration/catalog"
 import { formatDate, formatClock, KIND_LABEL } from "@/lib/patreon-tv/format"
 import { useTvInput } from "@/navigation/tv-input"
 import { activeScreen, currentNavId, focusById } from "@/navigation/focus-nav"
-import { Artwork } from "./artwork"
-import { PatreonTvLogo } from "./logo"
+import { Artwork, knownRatio } from "./artwork"
+import { AnimatedLogo } from "./logo"
+import { getProgress, progressFraction } from "@/lib/patreon-tv/progress"
 
-type Tab = "latest" | ContentKind
+type Tab = "latest" | Exclude<ContentKind, "text"> | "posts"
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "latest", label: "Últimos" },
   { id: "video", label: "Vídeos" },
   { id: "audio", label: "Audio" },
-  { id: "text", label: "Texto" },
+  { id: "posts", label: "Texto" },
 ]
 
 export function BrowseScreen({
@@ -25,6 +26,7 @@ export function BrowseScreen({
   onSwitchCreator,
   onOpenSearch,
   onOpenItem,
+  onReadItem,
   active = true,
 }: {
   active?: boolean
@@ -33,6 +35,7 @@ export function BrowseScreen({
   onSwitchCreator: () => void
   onOpenSearch: () => void
   onOpenItem: (item: ContentItem) => void
+  onReadItem?: (item: ContentItem) => void
 }) {
   const creator = creatorById(creatorId)
   const [tab, setTab] = useState<Tab>("latest")
@@ -40,9 +43,16 @@ export function BrowseScreen({
   const [direction, setDirection] = useState(1)
   const lastNav = useRef<string | null>(null)
   const rootRef = useRef<HTMLDivElement>(null)
+  const [logoRun, setLogoRun] = useState(0)
+  useEffect(() => {
+    if (!active) return
+    const t = setInterval(() => setLogoRun((n) => n + 1), 180_000)
+    return () => clearInterval(t)
+  }, [active])
 
   const filtered = useMemo(() => {
-    if (tab === "latest") return items
+    // "Publicaciones" lists every post: its full body is fetched on demand by the reader.
+    if (tab === "latest" || tab === "posts") return items
     return items.filter((i) => i.kind === tab)
   }, [items, tab])
 
@@ -52,8 +62,13 @@ export function BrowseScreen({
 
   const count = filtered.length
   const current = filtered[index]
+  const reading = tab === "posts" || current?.kind === "text"
   const prev = count > 1 ? filtered[(index - 1 + count) % count] : undefined
   const next = count > 1 ? filtered[(index + 1) % count] : undefined
+
+  useEffect(() => {
+    if (count && index >= count - 4) void loadMore(creatorId)
+  }, [index, count, creatorId])
 
   const move = (dir: 1 | -1) => {
     if (count < 2) return
@@ -99,7 +114,7 @@ export function BrowseScreen({
         return false // otherwise: next/previous control in the same row
       case "ok":
         if (nav === "hero") {
-          if (current) onOpenItem(current)
+          if (current) (tab === "posts" || current.kind === "text") && onReadItem ? onReadItem(current) : onOpenItem(current)
           return true
         }
         return false
@@ -125,31 +140,46 @@ export function BrowseScreen({
         if (id) lastNav.current = id
       }}
     >
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background: "radial-gradient(55% 45% at 20% 10%, var(--ptv-accent-soft) 0%, transparent 70%)",
-        }}
-      />
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0" style={{ background: "radial-gradient(55% 45% at 20% 10%, var(--ptv-accent-soft) 0%, transparent 70%), radial-gradient(45% 40% at 85% 95%, var(--ptv-accent-soft) 0%, transparent 70%)" }} />
 
       <header className="relative z-10 flex flex-shrink-0 items-center justify-between">
-        <div className="flex items-center gap-2.5">
-<PatreonTvLogo className="h-8 w-8 rounded-lg object-cover shadow-[0_4px_14px_rgba(255,133,105,0.16)]" />
-          <span className="text-lg font-bold tracking-tight">Patreon TV</span>
+        <div className="h-10 w-10">
+          <AnimatedLogo className="h-full w-full" runKey={logoRun} delay={0.15} />
         </div>
 
-        <div className="flex items-center gap-3">
+        <div role="tablist" aria-label="Categorías" className="flex gap-1 rounded-full p-1" style={{ background: "rgba(255,255,255,0.06)" }}>
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              role="tab"
+              data-nav-lift
+              data-nav
+              data-nav-id={`tab:${t.id}`}
+              aria-selected={tab === t.id}
+              onClick={() => setTab(t.id)}
+              className="relative rounded-full px-5 py-2 text-sm font-semibold"
+              style={{ color: tab === t.id ? "#17141a" : "var(--ptv-muted)" }}
+            >
+              {tab === t.id && (
+                <motion.span layoutId="tab-pill" className="absolute inset-0 rounded-full" style={{ background: "var(--ptv-text)" }} transition={{ type: "spring", stiffness: 520, damping: 20, mass: 0.8 }} />
+              )}
+              <span className="relative">{t.label}</span>
+            </button>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-2">
           <button
             type="button"
             data-nav
             data-nav-id="creator"
             onClick={onSwitchCreator}
-            className="flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium"
-            style={{ color: "var(--ptv-muted)" }}
+            aria-label="Cambiar de creador"
+            className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full"
+            style={{ background: "var(--ptv-surface)" }}
           >
-            Creador: <span style={{ color: "var(--ptv-text)" }}>{creator?.name}</span>
-            <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
+            {creator?.avatar ? <Artwork src={creator.avatar} color={creator.color} alt="" className="h-full w-full" /> : <ChevronDown className="h-4 w-4" />}
           </button>
           <button
             type="button"
@@ -158,172 +188,168 @@ export function BrowseScreen({
             onClick={onOpenSearch}
             aria-label="Buscar"
             className="flex h-10 w-10 items-center justify-center rounded-full"
-            style={{ background: "var(--ptv-surface)", border: "1px solid var(--ptv-line)" }}
+            style={{ background: "var(--ptv-surface)" }}
           >
-            <Search className="h-4.5 w-4.5" aria-hidden="true" />
+            <Search className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
       </header>
 
-      <nav className="relative z-10 mt-[2.2vh] flex flex-shrink-0 justify-center">
-        <div role="tablist" aria-label="Categorías" className="flex gap-1.5 rounded-full p-1.5" style={{ background: "var(--ptv-surface)" }}>
-          {TABS.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              role="tab"
-              data-nav
-              data-nav-id={`tab:${t.id}`}
-              aria-selected={tab === t.id}
-              onClick={() => setTab(t.id)}
-              className="rounded-full px-5 py-2 text-sm font-semibold"
-              style={tab === t.id ? { background: "var(--ptv-raised)", color: "var(--ptv-text)" } : { color: "var(--ptv-muted)" }}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
-      </nav>
-
-      <div className="relative z-10 mt-[2.6vh] flex flex-shrink-0 items-end justify-between">
-        <div>
-          <p className="text-xs font-bold tracking-[0.2em]" style={{ color: "var(--ptv-accent)" }}>
-            BIBLIOTECA PERSONAL
-          </p>
-          <h1 className="ptv-h1 mt-1 font-bold tracking-tight text-balance">
-            {tab === "latest" ? "Últimos episodios" : `Explorar ${TABS.find((t) => t.id === tab)?.label.toLowerCase()}`}
-          </h1>
-        </div>
-        {count > 0 && (
-          <p className="text-sm font-medium" style={{ color: "var(--ptv-muted-dim)" }}>
-            {String(index + 1).padStart(2, "0")} / {String(count).padStart(2, "0")}
-          </p>
-        )}
-      </div>
-
-      <div className="ptv-fill relative z-10 mt-[2.4vh] flex items-center">
+      <div className="ptv-fill relative z-10 mt-[3vh] flex min-h-0 flex-col">
         {count === 0 ? (
-          <div className="w-full rounded-2xl py-20 text-center" style={{ background: "var(--ptv-surface)", color: "var(--ptv-muted)" }}>
-            No hay contenido en esta categoría todavía.
+          <div className="m-auto text-center text-lg" style={{ color: "var(--ptv-muted)" }}>
+            Nada por aquí todavía
           </div>
         ) : (
-          <div className="flex h-full w-full items-center gap-4">
-            <SideCard item={prev} onClick={() => move(-1)} align="right" />
+          <>
+            {/* Original album layout: peek – hero card – peek. Each artwork keeps its own format
+                (square podcasts, wide videos). Everything slides on one expressive spring. */}
+            <div className="flex min-h-0 flex-1 items-center justify-center gap-[2vw]">
+              <Peek item={prev} dir={direction} side={-1} onClick={() => move(-1)} />
 
-            <div
-              data-nav
-              data-nav-id="hero"
-              data-nav-default
-              tabIndex={0}
-              role="group"
-              aria-label={current ? `${current.title}. Pulsa OK para abrir` : undefined}
-              className="ptv-hero"
-            >
-              <AnimatePresence mode="wait" custom={direction} initial={false}>
-                {current && (
-                  <motion.div
-                    key={current.id}
-                    custom={direction}
-                    initial={{ opacity: 0, x: direction * 40 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: direction * -24, transition: exitTween }}
-                    transition={spring.snappy}
-                    className="grid h-full grid-cols-2"
-                  >
-                    <div className="relative h-full w-full overflow-hidden">
-                      <Artwork src={current.art} color={current.color} alt="" className="h-full w-full" />
-                      {current.locked && (
-                        <div className="absolute inset-0 flex items-center justify-center" style={{ background: "rgba(10,10,12,0.55)" }}>
-                          <Lock className="h-10 w-10" style={{ color: "var(--ptv-muted)" }} aria-hidden="true" />
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex min-h-0 flex-col justify-center gap-[1.6vh] overflow-hidden px-[2.4vw] py-[2vh]">
-                      <p className="text-xs font-bold tracking-[0.15em]" style={{ color: "var(--ptv-accent)" }}>
-                        {KIND_LABEL[current.kind].toUpperCase()} · {formatDate(current.publishedAt)}
-                      </p>
-                      <h2 className="ptv-h2 line-clamp-3 font-bold text-balance">{current.title}</h2>
-                      <p className="text-sm font-medium" style={{ color: "var(--ptv-muted)" }}>
-                        {creator?.name}
-                      </p>
-                      <p className="line-clamp-3 text-sm leading-relaxed text-pretty" style={{ color: "var(--ptv-muted)" }}>
-                        {current.description}
-                      </p>
+              <div
+                data-nav
+                data-nav-id="hero"
+                data-nav-default
+                tabIndex={0}
+                role="group"
+                aria-label={current ? current.title : undefined}
+                className="ptv-stage ptv-ring relative h-[50vh] w-[66vw] min-w-0 flex-shrink-0 overflow-hidden rounded-[28px]"
+                style={{ background: "var(--ptv-surface)" }}
+              >
+                <AnimatePresence mode="popLayout" custom={direction} initial={false}>
+                  {current && (
+                    <motion.div
+                      key={current.id}
+                      className="flex h-full"
+                      initial={{ opacity: 0, x: direction * 90 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: direction * -90, transition: { duration: 0.14 } }}
+                      transition={SPRING}
+                    >
+                      <HeroArt item={current} />
+                      <div className="flex min-w-0 flex-1 flex-col justify-center gap-[1.6vh] px-[2vw]" style={{ ["--title" as string]: wide(current) ? "2.6vh" : "3.6vh" }}>
+                        <motion.p
+                          className="text-xs font-bold tracking-[0.16em]"
+                          style={{ color: "var(--ptv-accent)" }}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ ...SPRING, delay: 0.04 }}
+                        >
+                          {KIND_LABEL[current.kind].toUpperCase()} · {formatDate(current.publishedAt)}
+                        </motion.p>
+                        <motion.h2
+                          className="line-clamp-4 font-bold leading-tight text-balance" style={{ fontSize: "var(--title)" }}
+                          initial={{ opacity: 0, y: 14 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ ...SPRING, delay: 0.08 }}
+                        >
+                          {current.title}
+                        </motion.h2>
+                        {current.locked ? (
+                          <div className="flex w-fit items-center gap-2 rounded-full px-5 py-3 text-sm font-semibold" style={{ background: "var(--ptv-raised)", color: "var(--ptv-muted)" }}>
+                            <Lock className="h-4 w-4" aria-hidden="true" /> Bloqueado
+                          </div>
+                        ) : (
+                          <motion.span
+                            className="ptv-cta mt-1 flex w-fit items-center gap-2 rounded-full px-6 py-3 text-sm font-bold"
+                            initial={{ opacity: 0, scale: 0.8 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            transition={{ type: "spring", stiffness: 520, damping: 16, delay: 0.12 }}
+                            onClick={() => (reading && onReadItem ? onReadItem(current) : onOpenItem(current))}
+                          >
+                            {reading ? <FileText className="h-4 w-4" aria-hidden="true" /> : <Play className="h-4 w-4 fill-current" aria-hidden="true" />}
+                            {wide(current) ? null : reading ? "Leer" : progressFraction(current.id) > 0 ? "Continuar" : "Reproducir"}
+                            {current.durationSec && !reading && !wide(current) ? <span className="opacity-55">{formatClock(current.durationSec)}</span> : null}
+                          </motion.span>
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
 
-                      {current.locked ? (
-                        <div
-                          className="mt-2 flex w-fit items-center gap-2 rounded-full px-5 py-3 text-sm font-semibold"
-                          style={{ background: "var(--ptv-raised)", color: "var(--ptv-muted)" }}
-                        >
-                          <Lock className="h-4 w-4" aria-hidden="true" />
-                          Exclusivo para mecenas
-                        </div>
-                      ) : (
-                        <button
-                          type="button"
-                          tabIndex={-1}
-                          onClick={() => onOpenItem(current)}
-                          className="mt-2 flex w-fit items-center gap-2 rounded-full px-6 py-3 text-sm font-bold"
-                          style={{ background: "var(--ptv-text)", color: "#17141a" }}
-                        >
-                          {current.kind === "text" ? (
-                            <FileText className="h-4 w-4" aria-hidden="true" />
-                          ) : (
-                            <Play className="h-4 w-4 fill-current" aria-hidden="true" />
-                          )}
-                          {current.kind === "text" ? "Leer" : "Reproducir"}
-                          {current.durationSec ? (
-                            <span className="opacity-60">· {formatClock(current.durationSec)}</span>
-                          ) : null}
-                        </button>
-                      )}
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+              <Peek item={next} dir={direction} side={1} onClick={() => move(1)} />
             </div>
 
-            <SideCard item={next} onClick={() => move(1)} align="left" />
-          </div>
+            {/* position dots: an expressive pill that stretches to the current item */}
+            <div className="mt-[2.4vh] flex flex-shrink-0 justify-center gap-1.5">
+              {filtered.slice(Math.max(0, index - 6), index + 7).map((it) => {
+                const on = it.id === current?.id
+                return (
+                  <motion.span
+                    key={it.id}
+                    className="h-[6px] rounded-full"
+                    animate={{ width: on ? 26 : 6, opacity: on ? 1 : 0.3 }}
+                    transition={{ type: "spring", stiffness: 500, damping: 22 }}
+                    style={{ background: on ? "var(--ptv-text)" : "#fff" }}
+                  />
+                )
+              })}
+            </div>
+          </>
         )}
       </div>
-
-      <footer className="relative z-10 mt-[1.6vh] flex flex-shrink-0 items-center justify-between text-xs" style={{ color: "var(--ptv-muted-dim)" }}>
-        <span>← → Explorar · ↑ ↓ Moverse · OK Abrir · Atrás Volver</span>
-        <span className="ptv-footer-brand">Patreon TV Personal</span>
-      </footer>
     </div>
   )
 }
 
-function SideCard({
-  item,
-  onClick,
-  align,
-}: {
-  item?: ContentItem
-  onClick: () => void
-  align: "left" | "right"
-}) {
-  if (!item) return <div className="ptv-side" />
+const SPRING = { type: "spring", stiffness: 420, damping: 24, mass: 0.9 } as const
+
+/** Square-ish art stays square, banners stay wide; never cropped beyond 1:1…16:9. */
+function fit(r?: number, kind?: string) {
+  const ratio = r ?? (kind === "audio" ? 1 : 16 / 9)
+  return Math.min(16 / 9, Math.max(1, ratio))
+}
+
+/** Wide thumbnails (videos) get a true 16:9 box, everything else a square: never a bad crop. */
+const isWide = (r?: number, kind?: string) => (r ? r > 1.3 : kind === "video")
+function wide(item: ContentItem) {
+  return isWide(knownRatio(item.art), item.kind)
+}
+
+function HeroArt({ item }: { item: ContentItem }) {
+  const [w, setW] = useState(() => wide(item))
   return (
-    <button
-      type="button"
-      tabIndex={-1}
-      onClick={onClick}
-      className="ptv-side relative block overflow-hidden rounded-2xl opacity-55"
-      aria-label={`Ir a ${item.title}`}
+    <motion.div
+      className="relative h-full flex-shrink-0 overflow-hidden"
+      initial={false}
+      animate={{ width: w ? `${(50 * 16) / 9}vh` : "50vh" }}
+      transition={SPRING}
     >
-      <Artwork src={item.art} color={item.color} alt="" className="h-full w-full" />
-      <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, transparent 40%, rgba(10,10,12,0.9) 100%)" }} />
-      {item.locked && (
-        <Lock className="absolute right-3 top-3 h-4 w-4" style={{ color: "var(--ptv-muted)" }} aria-hidden="true" />
+      <Artwork src={item.art} color={item.color} alt="" className="ptv-zoom h-full w-full" onRatio={(r) => setW(isWide(r, item.kind))} />
+      {progressFraction(item.id) > 0 && (
+        <div className="absolute inset-x-0 bottom-0 h-[5px] bg-black/40">
+          <div className="h-full w-full origin-left" style={{ transform: `scaleX(${progressFraction(item.id)})`, background: "var(--ptv-accent)" }} />
+        </div>
       )}
-      <span
-        className={`absolute bottom-3 ${align === "left" ? "left-3 right-3" : "left-3 right-3"} truncate text-left text-sm font-semibold`}
-      >
-        {item.locked ? "Contenido bloqueado" : item.title}
-      </span>
-    </button>
+    </motion.div>
+  )
+}
+
+function Peek({ item, dir, side, onClick }: { item?: ContentItem; dir: number; side: -1 | 1; onClick: () => void }) {
+  const ratio = fit(knownRatio(item?.art), item?.kind)
+  return (
+    <div className="relative h-[38vh] w-[8vw] flex-shrink-0" style={{ display: "flex", justifyContent: side < 0 ? "flex-end" : "flex-start", alignItems: "center" }}>
+      <AnimatePresence mode="popLayout" initial={false}>
+        {item && (
+          <motion.button
+            key={item.id}
+            type="button"
+            tabIndex={-1}
+            onClick={onClick}
+            className="h-full flex-shrink-0 overflow-hidden rounded-[22px]"
+            style={{ width: "8vw" }}
+            initial={{ opacity: 0, x: dir * 70, scale: 0.85 }}
+            animate={{ opacity: 0.4, x: 0, scale: 1 }}
+            exit={{ opacity: 0, x: dir * -70, scale: 0.85, transition: { duration: 0.14 } }}
+            transition={SPRING}
+            aria-label={item.title}
+          >
+            <Artwork src={item.art} color={item.color} alt="" className="h-full w-full" />
+          </motion.button>
+        )}
+      </AnimatePresence>
+    </div>
   )
 }

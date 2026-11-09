@@ -30,9 +30,9 @@
     mod
   ));
 
-  // node_modules/.pnpm/react@19.3.0/node_modules/react/cjs/react.development.js
+  // node_modules/react/cjs/react.development.js
   var require_react_development = __commonJS({
-    "node_modules/.pnpm/react@19.3.0/node_modules/react/cjs/react.development.js"(exports, module) {
+    "node_modules/react/cjs/react.development.js"(exports, module) {
       "use strict";
       (function() {
         function defineDeprecationWarning(methodName, info) {
@@ -1027,9 +1027,9 @@
     }
   });
 
-  // node_modules/.pnpm/react@19.3.0/node_modules/react/index.js
+  // node_modules/react/index.js
   var require_react = __commonJS({
-    "node_modules/.pnpm/react@19.3.0/node_modules/react/index.js"(exports, module) {
+    "node_modules/react/index.js"(exports, module) {
       "use strict";
       if (false) {
         module.exports = null;
@@ -1038,6 +1038,73 @@
       }
     }
   });
+
+  // src/lib/patreon-tv/ui-sound.ts
+  var ctx = null;
+  var master = null;
+  var last = 0;
+  function ac() {
+    if (!ctx) {
+      ctx = new AudioContext({ latencyHint: "interactive" });
+      master = ctx.createGain();
+      master.gain.value = 0.18;
+      const lp = ctx.createBiquadFilter();
+      lp.type = "lowpass";
+      lp.frequency.value = 5200;
+      master.connect(lp).connect(ctx.destination);
+    }
+    if (ctx.state === "suspended") void ctx.resume();
+    return ctx;
+  }
+  function pop(c, at, freq, gain, dur = 0.09, bend = 0.55) {
+    const o = c.createOscillator();
+    const g = c.createGain();
+    o.type = "sine";
+    o.frequency.setValueAtTime(freq * 1.6, at);
+    o.frequency.exponentialRampToValueAtTime(freq, at + 0.018);
+    o.frequency.exponentialRampToValueAtTime(freq * bend, at + dur);
+    g.gain.setValueAtTime(1e-4, at);
+    g.gain.exponentialRampToValueAtTime(gain, at + 4e-3);
+    g.gain.exponentialRampToValueAtTime(1e-4, at + dur);
+    o.connect(g).connect(master);
+    o.start(at);
+    o.stop(at + dur + 0.02);
+    const buf = c.createBuffer(1, Math.floor(c.sampleRate * 6e-3), c.sampleRate);
+    const ch = buf.getChannelData(0);
+    for (let i = 0; i < ch.length; i++) ch[i] = (Math.random() * 2 - 1) * (1 - i / ch.length);
+    const n = c.createBufferSource();
+    n.buffer = buf;
+    const bp = c.createBiquadFilter();
+    bp.type = "bandpass";
+    bp.frequency.value = freq * 3;
+    const ng = c.createGain();
+    ng.gain.value = gain * 0.6;
+    n.connect(bp).connect(ng).connect(master);
+    n.start(at);
+  }
+  var BASE = { left: 740, up: 700, tick: 800, right: 880, down: 840 };
+  function uiSound(kind) {
+    try {
+      if (localStorage.getItem("ctv:sounds") !== "on") return;
+      const now = performance.now();
+      const directional = kind in BASE;
+      if (directional && now - last < 55) return;
+      last = now;
+      const c = ac();
+      const t = c.currentTime + 5e-3;
+      if (directional) pop(c, t, BASE[kind] * (0.97 + Math.random() * 0.06), 0.09, 0.07, 0.6);
+      else if (kind === "select") {
+        pop(c, t, 620, 0.12, 0.1, 0.8);
+        pop(c, t + 0.06, 930, 0.1, 0.14, 0.85);
+      } else if (kind === "back") {
+        pop(c, t, 820, 0.1, 0.09, 0.7);
+        pop(c, t + 0.055, 520, 0.09, 0.13, 0.7);
+      } else if (kind === "open") {
+        pop(c, t, 480, 0.1, 0.12, 1.4);
+      }
+    } catch {
+    }
+  }
 
   // src/navigation/tv-input.ts
   var import_react = __toESM(require_react());
@@ -1150,14 +1217,7 @@
       });
     };
     doc.addEventListener("focusout", check, true);
-    const observer = new MutationObserver(check);
-    observer.observe(doc.documentElement, { childList: true, subtree: true });
-    check();
-    return () => {
-      doc.removeEventListener("focusout", check, true);
-      observer.disconnect();
-      cancelAnimationFrame(raf);
-    };
+    return () => doc.removeEventListener("focusout", check, true);
   }
 
   // src/navigation/tv-input.ts
@@ -1218,6 +1278,7 @@
     if (e.ctrlKey || e.altKey || e.metaKey) return;
     const action = toAction(e);
     if (!action) return;
+    if (!isTextField(e.target)) uiSound(DIRECTIONAL.has(action) ? action : action === "rewind" ? "left" : action === "forward" ? "right" : action === "back" ? "back" : "select");
     if (isTextField(e.target)) {
       if (action === "ok") {
         try {

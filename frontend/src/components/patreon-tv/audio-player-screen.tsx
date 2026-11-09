@@ -1,23 +1,23 @@
-import { motion, useReducedMotion } from "motion/react"
+import { useEffect, useRef, useState } from "react"
+import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { spring, exitTween } from "@/lib/patreon-tv/motion-tokens"
-import { ArrowLeft, Pause, Play, RotateCcw, RotateCw } from "lucide-react"
+import { Gauge, Pause, Play } from "lucide-react"
 import type { ContentItem } from "@/lib/patreon-tv/types"
 import { creatorById } from "@/integration/catalog"
 import { formatClock, KIND_LABEL } from "@/lib/patreon-tv/format"
 import { useTvInput } from "@/navigation/tv-input"
-import { currentNavId } from "@/navigation/focus-nav"
+import { getPrefs, nextSpeed, setPrefs, speedLabel } from "@/lib/patreon-tv/progress"
 import { Artwork } from "./artwork"
+import { WavyProgress } from "./wavy-progress"
 
-const SKIP_SECONDS = 10
+const STEP = 10
 
 /**
- * Full-screen audio player. Fades/settles in and out as one opaque layer
- * (opacity + a few px of transform only). Playback lives in the native
- * service, so mounting/unmounting this view never touches the audio.
- *
- * Remote: ←/→ move between controls; on the seek bar they seek ±10 s.
- * ↑/↓ move between header, seek bar and transport controls. OK activates.
- * Rewind / Fast-forward / Play-Pause keys always work. BACK minimises.
+ * Full-screen audio player, driven like a native TV player (no on-screen buttons to reach):
+ *   ← / →   rewind / forward 10 s per press; quick presses add up, the jump lands when you stop
+ *   OK      play / pause
+ *   ↓       options (speed) · ↑ or BACK closes them
+ *   BACK    minimise to the mini-player (audio keeps playing in the native service)
  */
 export function AudioPlayerScreen({
   item,
@@ -27,7 +27,6 @@ export function AudioPlayerScreen({
   onMinimize,
   onTogglePlay,
   onSeek,
-  onSkip,
 }: {
   item: ContentItem
   playing: boolean
@@ -36,42 +35,79 @@ export function AudioPlayerScreen({
   onMinimize: () => void
   onTogglePlay: () => void
   onSeek: (pos: number) => void
-  onSkip: (delta: number) => void
+  onSkip?: (delta: number) => void
 }) {
   const creator = creatorById(item.creatorId)
   const reduced = useReducedMotion()
+  const [scrub, setScrub] = useState<number | null>(null)
+  const [nudgeDir, setNudgeDir] = useState<0 | 1 | -1>(0)
+  const [menu, setMenu] = useState(false)
+  const [speed, setSpeed] = useState(getPrefs().audioSpeed)
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(
+    () => () => {
+      if (timer.current) clearTimeout(timer.current)
+    },
+    [],
+  )
+
+  const nudge = (dir: 1 | -1) => {
+    const base = scrub ?? position
+    const next = Math.max(0, Math.min(duration || base + STEP, base + dir * STEP))
+    setScrub(next)
+    setNudgeDir(dir)
+    if (timer.current) clearTimeout(timer.current)
+    timer.current = setTimeout(() => {
+      onSeek(next)
+      setNudgeDir(0)
+      setTimeout(() => setScrub(null), 700) // let the native position catch up
+    }, 650)
+  }
+
+  const cycleSpeed = () => {
+    const s = nextSpeed(speed)
+    setSpeed(s)
+    setPrefs({ audioSpeed: s })
+    window.PersonalAudio?.setSpeed?.(s)
+  }
 
   useTvInput(
     (action) => {
+      if (menu) {
+        if (action === "ok") cycleSpeed()
+        else if (action === "up" || action === "back" || action === "down") setMenu(false)
+        else if (action === "playpause") onTogglePlay()
+        return true
+      }
       switch (action) {
         case "back":
           onMinimize()
           return true
+        case "left":
         case "rewind":
-          onSkip(-SKIP_SECONDS)
+          nudge(-1)
           return true
+        case "right":
         case "forward":
-          onSkip(SKIP_SECONDS)
+          nudge(1)
           return true
+        case "ok":
         case "playpause":
           onTogglePlay()
           return true
-        case "left":
-        case "right":
-          if (currentNavId() === "audio-seek") {
-            onSkip(action === "left" ? -SKIP_SECONDS : SKIP_SECONDS)
-            return true
-          }
-          return false // move between controls
-        case "ok":
-          onTogglePlay() // only reached when a non-button (the seek bar) has focus
+        case "down":
+          setMenu(true)
           return true
         default:
-          return false
+          return true
       }
     },
     { modal: true },
   )
+
+  const shown = scrub ?? position
+  const delta = scrub !== null ? scrub - position : 0
 
   return (
     <motion.div
@@ -86,108 +122,106 @@ export function AudioPlayerScreen({
         <div
           aria-hidden="true"
           className="pointer-events-none absolute inset-0"
-          style={{ background: "radial-gradient(55% 55% at 50% 30%, var(--ptv-accent-soft) 0%, transparent 70%)" }}
+          style={{ background: "radial-gradient(55% 55% at 30% 45%, var(--ptv-accent-soft) 0%, transparent 70%)" }}
         />
 
-        <header className="relative z-10 flex flex-shrink-0 items-center justify-between">
-          <button
-            type="button"
-            data-nav
-            data-nav-id="audio-back"
-            onClick={onMinimize}
-            className="flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold"
-            style={{ color: "var(--ptv-muted)" }}
-          >
-            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-            Biblioteca
-          </button>
-          <p className="text-sm font-medium" style={{ color: "var(--ptv-muted-dim)" }}>
-            Reproduciendo audio
-          </p>
-        </header>
-
-        <div className="ptv-fill relative z-10 flex items-center justify-center gap-[5vw] py-[2vh]">
-          <div
-            className="aspect-square flex-shrink-0 overflow-hidden rounded-3xl shadow-2xl"
-            style={{ height: "min(100%, 56vh)" }}
+        <div className="ptv-fill relative z-10 flex items-center justify-center gap-[5vw]">
+          {/* The cover breathes with playback (smaller when paused) and leans toward the seek direction. */}
+          <motion.div
+            className="aspect-square flex-shrink-0 overflow-hidden rounded-[32px]"
+            style={{ height: "58vh", boxShadow: "0 40px 90px -30px rgba(0,0,0,0.9)" }}
+            animate={{ scale: playing ? 1 : 0.92, x: nudgeDir * 10 }}
+            transition={{ type: "spring", stiffness: 260, damping: 16 }}
           >
             <Artwork src={item.art} color={item.color} alt="" className="h-full w-full" />
-          </div>
+          </motion.div>
 
-          <div className="flex w-full max-w-md min-w-0 flex-col items-start gap-[1.4vh] text-left">
+          <div className="flex w-full max-w-[42vw] min-w-0 flex-col items-start gap-[1.6vh]">
             <p className="text-xs font-bold tracking-[0.2em]" style={{ color: "var(--ptv-accent)" }}>
-              {KIND_LABEL[item.kind].toUpperCase()}
+              {KIND_LABEL[item.kind].toUpperCase()} · {creator?.name}
             </p>
             <h1 className="ptv-h1 line-clamp-3 font-bold text-balance">{item.title}</h1>
-            <p className="text-sm font-medium" style={{ color: "var(--ptv-muted)" }}>
-              {creator?.name}
-            </p>
 
-            <div className="mt-2 w-full">
-              <input
-                type="range"
-                data-nav
-                data-nav-id="audio-seek"
-                min={0}
-                max={duration || 0}
-                value={Math.min(position, duration)}
-                onChange={(e) => onSeek(Number(e.target.value))}
-                aria-label="Posición de reproducción"
-                className="w-full"
-                style={{ accentColor: "var(--ptv-accent)" }}
-              />
-              <div className="mt-1 flex justify-between text-xs" style={{ color: "var(--ptv-muted-dim)" }}>
-                <span>{formatClock(position)}</span>
+            <div className="mt-[3vh] w-full">
+              <WavyProgress value={duration ? shown / duration : 0} playing={playing && scrub === null} thick={6} />
+              <div className="mt-2 flex items-center justify-between text-sm tabular-nums" style={{ color: "var(--ptv-muted-dim)" }}>
+                <motion.span
+                  className="origin-left font-semibold"
+                  animate={{ scale: scrub !== null ? 1.3 : 1, color: scrub !== null ? "#ffffff" : "rgba(255,255,255,0.55)" }}
+                  transition={{ type: "spring", stiffness: 500, damping: 15 }}
+                >
+                  {formatClock(shown)}
+                </motion.span>
+                <AnimatePresence>
+                  {delta !== 0 && (
+                    <motion.span
+                      key="delta"
+                      className="rounded-full px-3 py-0.5 text-xs font-bold"
+                      style={{ background: "var(--ptv-text)", color: "#17141a" }}
+                      initial={{ opacity: 0, y: 6, scale: 0.7 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.8 }}
+                      transition={{ type: "spring", stiffness: 600, damping: 18 }}
+                    >
+                      {delta > 0 ? "+" : "−"}
+                      {formatClock(Math.abs(delta))}
+                    </motion.span>
+                  )}
+                </AnimatePresence>
                 <span>{formatClock(duration)}</span>
               </div>
             </div>
 
-            <div className="mt-2 flex items-center gap-6">
-              <button
-                type="button"
-                data-nav
-                data-nav-id="audio-back10"
-                onClick={() => onSkip(-SKIP_SECONDS)}
-                aria-label="Retroceder 10 segundos"
-                className="flex h-11 w-11 items-center justify-center rounded-full"
-                style={{ color: "var(--ptv-muted)" }}
-              >
-                <RotateCcw className="h-5 w-5" aria-hidden="true" />
-              </button>
-              <button
-                type="button"
-                data-nav
-                data-nav-default
-                data-nav-id="audio-play"
-                onClick={onTogglePlay}
-                aria-label={playing ? "Pausar" : "Reproducir"}
-                className="flex h-16 w-16 items-center justify-center rounded-full"
+            <div className="relative mt-[2vh] flex items-center gap-4">
+              <motion.div
+                className="flex h-[9vh] w-[9vh] items-center justify-center rounded-full"
                 style={{ background: "var(--ptv-text)", color: "#17141a" }}
+                animate={{ scale: playing ? 1 : 1.06 }}
+                transition={{ type: "spring", stiffness: 420, damping: 12 }}
               >
-                {playing ? <Pause className="h-6 w-6 fill-current" /> : <Play className="h-6 w-6 fill-current" />}
-              </button>
-              <button
-                type="button"
-                data-nav
-                data-nav-id="audio-fwd10"
-                onClick={() => onSkip(SKIP_SECONDS)}
-                aria-label="Adelantar 10 segundos"
-                className="flex h-11 w-11 items-center justify-center rounded-full"
-                style={{ color: "var(--ptv-muted)" }}
-              >
-                <RotateCw className="h-5 w-5" aria-hidden="true" />
-              </button>
+                <motion.span
+                  key={playing ? "pause" : "play"}
+                  className="flex"
+                  initial={{ scale: 0.3, rotate: playing ? -90 : 90, opacity: 0 }}
+                  animate={{ scale: 1, rotate: 0, opacity: 1 }}
+                  transition={{ type: "spring", stiffness: 520, damping: 13 }}
+                >
+                  {playing ? <Pause className="h-7 w-7 fill-current" /> : <Play className="h-7 w-7 fill-current" />}
+                </motion.span>
+              </motion.div>
+              {speed !== 1 && !menu && (
+                <span className="rounded-full px-3 py-1 text-sm font-bold" style={{ background: "rgba(255,255,255,0.1)" }}>
+                  {speedLabel(speed)}
+                </span>
+              )}
+
+              <AnimatePresence>
+                {menu && (
+                  <motion.div
+                    className="flex items-center gap-3 rounded-full py-2 pl-4 pr-5 text-sm font-semibold"
+                    style={{ background: "var(--ptv-text)", color: "#17141a", transformOrigin: "left center" }}
+                    initial={{ opacity: 0, scale: 0.6, x: -10 }}
+                    animate={{ opacity: 1, scale: 1, x: 0 }}
+                    exit={{ opacity: 0, scale: 0.8, transition: { duration: 0.12 } }}
+                    transition={{ type: "spring", stiffness: 520, damping: 20 }}
+                  >
+                    <Gauge className="h-4 w-4" />
+                    Velocidad
+                    <motion.span
+                      key={speed}
+                      className="tabular-nums"
+                      initial={{ scale: 0.5, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      transition={{ type: "spring", stiffness: 600, damping: 14 }}
+                    >
+                      {speedLabel(speed)}
+                    </motion.span>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </div>
         </div>
-
-        <footer
-          className="relative z-10 flex flex-shrink-0 items-center justify-between text-xs"
-          style={{ color: "var(--ptv-muted-dim)" }}
-        >
-          <span>↑ ↓ Moverse · ← → Elegir / Buscar ±10 s · OK Activar · Atrás Minimizar</span>
-          <span className="ptv-footer-brand">Patreon TV Personal</span>
-        </footer>
       </div>
     </motion.div>
   )

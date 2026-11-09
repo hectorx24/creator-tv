@@ -16,14 +16,14 @@ cd "$FRONTEND_DIR"
 
 if [ ! -d "node_modules" ]; then
     echo "Installing frontend dependencies..."
-    pnpm install --frozen-lockfile
+    npm ci
 fi
 
 echo "Running test suite..."
-pnpm test
+npm run test
 
 echo "Building production frontend bundle (Vite + React 19)..."
-pnpm build
+npm run build
 
 echo ""
 echo "========================================================"

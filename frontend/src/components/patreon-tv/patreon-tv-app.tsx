@@ -1,28 +1,37 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import { lazy, Suspense, useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react"
 import { AnimatePresence, LayoutGroup, MotionConfig } from "motion/react"
 import type { ContentItem } from "@/lib/patreon-tv/types"
 import type { LoginCredentials } from "@/integration/types"
-import { contentForCreator, loadCatalog, resetCatalog } from "@/integration/catalog"
+import { catalogAge, catalogVersion, contentForCreator, getAllContent, loadCatalog, refreshCatalog, resetCatalog, subscribeCatalog } from "@/integration/catalog"
 import { errorMessage, getIntegration, requireIntegration } from "@/integration/registry"
 import { useAudioStatus, useVideoStatus } from "@/integration/use-playback"
 import { LoginScreen } from "./login-screen"
 import { CreatorGrid } from "./creator-grid"
 import { BrowseScreen } from "./browse-screen"
 import { MiniPlayer } from "./mini-player"
-import { AudioPlayerScreen } from "./audio-player-screen"
-import { VideoOverlay } from "./video-overlay"
-import { SearchScreen } from "./search-screen"
-import { TextReaderScreen } from "./text-reader-screen"
+// Heavy, rarely-first screens load on demand (hls.js alone is ~500 KB): faster cold start on Chromecast HD.
+const AudioPlayerScreen = lazy(() => import("./audio-player-screen").then((m) => ({ default: m.AudioPlayerScreen })))
+const VideoOverlay = lazy(() => import("./video-overlay").then((m) => ({ default: m.VideoOverlay })))
+const SearchScreen = lazy(() => import("./search-screen").then((m) => ({ default: m.SearchScreen })))
+const TextReaderScreen = lazy(() => import("./text-reader-screen").then((m) => ({ default: m.TextReaderScreen })))
+// Warm the chunks once the UI is idle so the first open is still instant.
+if (typeof window !== "undefined")
+  setTimeout(() => {
+    void import("./video-overlay")
+    void import("./audio-player-screen")
+    void import("./text-reader-screen")
+  }, 4000)
 import { StartupIntro } from "./startup-intro"
+import { ConfirmDialog } from "./confirm-dialog"
 
-type Stage = "login" | "app"
+type Stage = "checking" | "login" | "app"
 type Overlay = "none" | "search" | "reader" | "audioFull"
 type AudioMode = "closed" | "mini" | "full"
 
 const clamp = (value: number, max: number) => Math.max(0, Math.min(max, value))
 
 export function PatreonTvApp() {
-  const [stage, setStage] = useState<Stage>("login")
+  const [stage, setStage] = useState<Stage>("checking")
   const [showStartup, setShowStartup] = useState(true)
   const [loginBusy, setLoginBusy] = useState(false)
   const [loginError, setLoginError] = useState<string | null>(null)
@@ -33,7 +42,29 @@ export function PatreonTvApp() {
   const [videoItem, setVideoItem] = useState<ContentItem | null>(null)
   const [audioItem, setAudioItem] = useState<ContentItem | null>(null)
   const [audioMode, setAudioMode] = useState<AudioMode>("closed")
+  const [confirmLogout, setConfirmLogout] = useState(false)
   const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useSyncExternalStore(subscribeCatalog, catalogVersion) // re-render when new posts arrive
+
+  // Fresh content: the WebView can live for days in the background. Refresh when the app comes
+  // back (if older than 5 min) and every 30 min while visible.
+  useEffect(() => {
+    if (stage !== "app") return
+    const maybe = () => {
+      if (document.visibilityState === "visible" && catalogAge() > 5 * 60_000) void refreshCatalog()
+    }
+    document.addEventListener("visibilitychange", maybe)
+    window.addEventListener("focus", maybe)
+    const t = setInterval(() => {
+      if (document.visibilityState === "visible") void refreshCatalog()
+    }, 30 * 60_000)
+    return () => {
+      document.removeEventListener("visibilitychange", maybe)
+      window.removeEventListener("focus", maybe)
+      clearInterval(t)
+    }
+  }, [stage])
 
   const audioStatus = useAudioStatus()
   const videoStatus = useVideoStatus()
@@ -58,21 +89,51 @@ export function PatreonTvApp() {
   )
 
   useEffect(() => {
+    // Stay on the intro until the session is known: no Login flash when a valid session exists.
     const auth = getIntegration("auth")
-    if (!auth?.isAuthenticated) return
+    if (!auth?.isAuthenticated) {
+      setStage("login")
+      return
+    }
     let cancelled = false
     auth
       .isAuthenticated()
       .then(async (authenticated) => {
-        if (!authenticated || cancelled) return
-        await loadCatalog()
-        if (!cancelled) setStage("app")
+        if (cancelled) return
+        if (!authenticated) return setStage("login")
+        try {
+          await loadCatalog()
+        } catch (error) {
+          showNotice(errorMessage(error))
+        }
+        if (!cancelled) {
+          restoreAudio()
+          setStage("app")
+        }
       })
-      .catch(() => {})
+      .catch(() => !cancelled && setStage("login"))
     return () => {
       cancelled = true
     }
   }, [])
+
+  // Audio keeps playing in the native service while the UI is gone; re-attach the mini-player on return.
+  function restoreAudio() {
+    let id = ""
+    try {
+      const raw = window.PersonalAudio?.status?.()
+      const st = typeof raw === "string" ? JSON.parse(raw) : raw
+      id = st?.id ? String(st.id) : ""
+    } catch {
+      /* no native audio */
+    }
+    if (!id) return
+    const item = getAllContent().find((i) => i.id === id)
+    if (item) {
+      setAudioItem(item)
+      setAudioMode("mini")
+    }
+  }
 
   const handleLogin = useCallback(async (credentials: LoginCredentials) => {
     setLoginBusy(true)
@@ -90,6 +151,7 @@ export function PatreonTvApp() {
   }, [])
 
   const handleLogout = useCallback(() => {
+    setConfirmLogout(false)
     getIntegration("audio")?.stop()
     getIntegration("video")?.close()
     void getIntegration("auth")
@@ -225,8 +287,9 @@ export function PatreonTvApp() {
   return (
     <MotionConfig reducedMotion="user">
     <LayoutGroup>
+      <Suspense fallback={null}>
       <div className="ptv relative">
-        {stage === "login" ? (
+        {stage === "checking" ? null : stage === "login" ? (
           <LoginScreen onLogin={handleLogin} busy={loginBusy} error={loginError} />
         ) : (
           <>
@@ -236,7 +299,7 @@ export function PatreonTvApp() {
                   setActiveCreatorId(id)
                   setOverlay("none")
                 }}
-                onLogout={handleLogout}
+                onLogout={() => setConfirmLogout(true)}
               />
             )}
 
@@ -254,6 +317,10 @@ export function PatreonTvApp() {
               onSwitchCreator={() => setActiveCreatorId(null)}
               onOpenSearch={() => setOverlay("search")}
               onOpenItem={handleOpenItem}
+              onReadItem={(item) => {
+                setReaderItem(item)
+                setOverlay("reader")
+              }}
             />
           </div>
         )}
@@ -266,7 +333,14 @@ export function PatreonTvApp() {
 
         {overlay === "reader" && readerItem && (
           <div className="ptv-overlay">
-            <TextReaderScreen item={readerItem} onBack={closeReader} />
+            <TextReaderScreen
+              item={readerItem}
+              onBack={closeReader}
+              onPlay={(item) => {
+                closeReader()
+                handleOpenItem(item)
+              }}
+            />
           </div>
         )}
 
@@ -315,9 +389,21 @@ export function PatreonTvApp() {
         )}
         {noticeBanner}
         <AnimatePresence>
-          {showStartup && <StartupIntro onComplete={() => setShowStartup(false)} />}
+          {confirmLogout && (
+            <ConfirmDialog
+              title="¿Cerrar sesión?"
+              body="Tendrás que volver a iniciar sesión en Patreon para ver tu biblioteca. La reproducción actual se detendrá."
+              confirmLabel="Cerrar sesión"
+              onConfirm={handleLogout}
+              onCancel={() => setConfirmLogout(false)}
+            />
+          )}
+        </AnimatePresence>
+        <AnimatePresence>
+          {showStartup && <StartupIntro ready={stage !== "checking"} onComplete={() => setShowStartup(false)} />}
         </AnimatePresence>
       </div>
+      </Suspense>
     </LayoutGroup>
     </MotionConfig>
   )

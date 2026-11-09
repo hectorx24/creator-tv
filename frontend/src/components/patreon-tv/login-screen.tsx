@@ -50,7 +50,7 @@ export function LoginScreen({
       >
         <div className="mb-8 flex flex-col items-center gap-2 text-center">
   <PatreonTvLogo className="h-14 w-14 rounded-2xl object-cover shadow-[0_8px_28px_rgba(255,133,105,0.16)]" />
-          <h1 className="text-4xl font-bold tracking-tight text-balance">Patreon TV</h1>
+          <h1 className="text-4xl font-bold tracking-tight text-balance">Creator TV</h1>
           <p className="text-sm" style={{ color: "var(--ptv-muted)" }}>
             Tu biblioteca personal de contenido para mecenas
           </p>
@@ -168,17 +168,6 @@ export function LoginScreen({
             style={{ background: "var(--ptv-accent)", color: "#1a0f0a" }}
           >
             {busy ? "Iniciando sesión…" : "Iniciar sesión"}
-          </button>
-
-          <button
-            type="button"
-            data-nav
-            data-nav-id="login-demo"
-            onClick={() => onLogin({ method: "session", sessionId: "demo" })}
-            className="w-full rounded-xl py-3 text-sm font-semibold"
-            style={{ background: "var(--ptv-surface)", border: "1px solid var(--ptv-line)", color: "var(--ptv-muted)" }}
-          >
-            Explorar Modo Demo
           </button>
         </div>
 

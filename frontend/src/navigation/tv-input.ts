@@ -1,3 +1,4 @@
+import { uiSound } from "@/lib/patreon-tv/ui-sound"
 import { useEffect, useRef } from "react"
 import { focusFirst, installFocusRecovery, moveFocus } from "./focus-nav"
 
@@ -73,6 +74,7 @@ function onKeyDown(e: KeyboardEvent) {
   if (e.ctrlKey || e.altKey || e.metaKey) return
   const action = toAction(e)
   if (!action) return
+  if (!isTextField(e.target)) uiSound(DIRECTIONAL.has(action) ? (action as "up" | "down" | "left" | "right") : action === "rewind" ? "left" : action === "forward" ? "right" : action === "back" ? "back" : "select")
 
   if (isTextField(e.target)) {
     if (action === "ok") {

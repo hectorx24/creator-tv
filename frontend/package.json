@@ -9,9 +9,10 @@
     "build:demo": "tsc --noEmit && vite build --mode demo --outDir dist-demo",
     "typecheck": "tsc --noEmit",
     "preview": "vite preview",
-    "test:nav": "node --import tsx --test tests/nav-core.test.ts",
-    "test:dom": "node tests/fixtures/build.mjs && node tests/tv-dom.test.mjs",
-    "test": "pnpm run test:nav && pnpm run test:dom"
+    "test:nav": "node --import tsx --test tests/nav-core.test.ts tests/chapters.test.ts",
+    "test:dom": "node tests/tv-dom.test.mjs",
+    "test": "npm run test:nav && npm run test:dom",
+    "pretest:dom": "node tests/fixtures/build.mjs"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.1",
@@ -30,8 +31,8 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^6.1.2",
-    "esbuild": "^0.28.2",
-    "playwright": "^1.64.0",
+    "jsdom": "^31.0.0",
+    "playwright": "^1.65.0",
     "postcss": "^8.5",
     "tailwindcss": "^4.3.3",
     "tsx": "^4.23.15",

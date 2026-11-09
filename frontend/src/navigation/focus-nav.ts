@@ -152,14 +152,5 @@ export function installFocusRecovery(doc: Document = document): () => void {
     })
   }
   doc.addEventListener("focusout", check, true)
-  // React may mount the first screen after the startup animation, with no
-  // previously focused control to emit focusout. Recover on DOM mounts too.
-  const observer = new MutationObserver(check)
-  observer.observe(doc.documentElement, { childList: true, subtree: true })
-  check()
-  return () => {
-    doc.removeEventListener("focusout", check, true)
-    observer.disconnect()
-    cancelAnimationFrame(raf)
-  }
+  return () => doc.removeEventListener("focusout", check, true)
 }

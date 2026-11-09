@@ -12,7 +12,7 @@ const url = "file://" + path.join(dir, "fixtures/browse.html")
 let failed = 0, passed = 0
 const ok = (cond, name, extra = "") => { if (cond) { passed++; console.log("  ✓", name) } else { failed++; console.log("  ✗", name, extra) } }
 
-const browser = await chromium.launch()
+const browser = await chromium.launch({ channel: process.env.PW_CHANNEL || 'chrome' })
 const nav = async (page) => page.evaluate(() => H.currentNavId())
 const press = async (page, key) => { await page.keyboard.press(key); await page.waitForTimeout(30) }
 
@@ -20,7 +20,7 @@ const press = async (page, key) => { await page.keyboard.press(key); await page.
 console.log("D-pad navigation @960×540 CSS px")
 {
   const page = await browser.newPage({ viewport: { width: 960, height: 540 } })
-  await page.goto(url); await page.waitForFunction(() => H.currentNavId() === "hero", { timeout: 3000 })
+  await page.goto(url); await page.waitForTimeout(150)
   ok((await nav(page)) === "hero", "initial focus lands on the hero (never on <body>)", await nav(page))
 
   await press(page, "ArrowUp");   ok(["tab:video","tab:audio"].includes(await nav(page)), "UP from hero → tab row", await nav(page))

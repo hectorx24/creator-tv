@@ -1,11 +1,13 @@
-import { useEffect } from "react"
-import { motion } from "motion/react"
+import { useEffect, useState } from "react"
+import { AnimatePresence, motion } from "motion/react"
 import { spring, stagger } from "@/lib/patreon-tv/motion-tokens"
 import { contentForCreator, getCreators } from "@/integration/catalog"
 import { useTvInput } from "@/navigation/tv-input"
 import { focusById } from "@/navigation/focus-nav"
 import { Artwork } from "./artwork"
-import { PatreonTvLogo } from "./logo"
+import { AnimatedLogo } from "./logo"
+import { LogOut, Settings2, Volume2, VolumeX } from "lucide-react"
+import { soundsEnabled, setSoundsEnabled, uiSound } from "@/lib/patreon-tv/ui-sound"
 
 /** Remembers the last creator so BACK from a library lands on the same card. */
 let lastCreatorId: string | null = null
@@ -20,19 +22,13 @@ export function CreatorGrid({
   const creators = getCreators()
 
   useEffect(() => {
-    const raf = requestAnimationFrame(() => focusById(lastCreatorId))
+    // Start on content, never on "Cerrar sesión".
+    const raf = requestAnimationFrame(() => focusById(lastCreatorId ?? creators[0]?.id ?? null))
     return () => cancelAnimationFrame(raf)
   }, [])
 
-  useTvInput((action) => {
-    if (action !== "back") return false
-    // BACK at top level backgrounds/leaves the app gracefully, preserving the authenticated session.
-    // Only the explicit "Cerrar sesión" button triggers logout.
-    try {
-      ;(window as any).PersonalAudio?.moveTaskToBack?.()
-    } catch {}
-    return true
-  })
+  // BACK here leaves the app (handled natively); it must never log out. Logout asks for confirmation.
+  useTvInput(() => false)
 
   return (
     <div className="ptv-screen" data-tv-screen data-tv-dock-ok>
@@ -46,81 +42,132 @@ export function CreatorGrid({
 
       <header className="relative z-10 mb-[3vh] flex flex-shrink-0 items-center justify-between">
         <div className="flex items-center gap-3">
-          <PatreonTvLogo className="h-10 w-10 rounded-xl object-cover shadow-[0_6px_20px_rgba(255,133,105,0.16)]" />
-          <div>
-            <p className="text-xs font-bold tracking-[0.2em]" style={{ color: "var(--ptv-accent)" }}>
-              PATREON TV
-            </p>
-            <h1 className="ptv-h1 mt-1 font-bold tracking-tight">Tus creadores</h1>
-          </div>
+          <div className="h-11 w-11"><AnimatedLogo className="h-full w-full" /></div>
+          <h1 className="text-2xl font-bold tracking-tight">Creadores</h1>
         </div>
-        <button
-          type="button"
-          data-nav
-          data-nav-id="logout"
-          onClick={onLogout}
-          className="rounded-full px-5 py-2.5 text-sm font-semibold"
-          style={{ background: "var(--ptv-surface)", border: "1px solid var(--ptv-line)", color: "var(--ptv-muted)" }}
-        >
-          Cerrar sesión
-        </button>
+        <SettingsMenu onLogout={onLogout} />
       </header>
 
-      <div className="ptv-scroll relative z-10 -m-1 p-1">
-      <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-4">
+      <div className="ptv-scroll relative z-10 -m-2 flex items-center p-2">
+      <div className="flex w-full flex-wrap items-start justify-center gap-[4vw]">
         {creators.length === 0 && (
-          <p className="col-span-full text-sm" style={{ color: "var(--ptv-muted)" }}>
+          <p className="text-sm" style={{ color: "var(--ptv-muted)" }}>
             No hay creadores disponibles todavía.
           </p>
         )}
         {creators.map((creator, i) => {
           const count = contentForCreator(creator.id).length
           return (
-            <motion.button
+            <motion.div
               key={creator.id}
-              type="button"
-              data-creator-card
-              data-nav
-              data-nav-id={creator.id}
-              onClick={() => {
-                lastCreatorId = creator.id
-                onSelect(creator.id)
-              }}
-              initial={{ opacity: 0, y: 28, scale: 0.95 }}
+              className="flex flex-col items-center gap-[2vh]"
+              initial={{ opacity: 0, y: 40, scale: 0.8 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              transition={{ ...spring.bouncy, delay: stagger(i) }}
-              className="group flex flex-col overflow-hidden rounded-2xl text-left"
-              style={{ background: "var(--ptv-surface)", border: "1px solid var(--ptv-line)" }}
+              transition={{ type: "spring", stiffness: 300, damping: 16, delay: 0.15 + stagger(i) }}
             >
-              <div className="relative aspect-[16/10] w-full overflow-hidden">
-                <Artwork
-                  src={creator.avatar}
-                  color={creator.color}
-                  alt=""
-                  className="h-full w-full"
-                />
-                <div
-                  className="absolute inset-0"
-                  style={{ background: "linear-gradient(180deg, transparent 40%, rgba(10,10,12,0.9) 100%)" }}
-                />
-                <span
-                  className="absolute bottom-3 left-3 rounded-full px-2.5 py-1 text-[11px] font-semibold"
-                  style={{ background: "rgba(10,10,12,0.75)", color: "var(--ptv-muted)" }}
-                >
-                  {count} publicaciones
-                </span>
-              </div>
-              <div className="flex flex-col gap-1 px-4 py-4">
+              <button
+                type="button"
+                data-creator-card
+                data-nav-lift
+                data-nav
+                data-nav-id={creator.id}
+                onClick={() => {
+                  lastCreatorId = creator.id
+                  onSelect(creator.id)
+                }}
+                aria-label={creator.name}
+                className="h-[34vh] w-[34vh] overflow-hidden rounded-[32px]"
+                style={{ background: "var(--ptv-surface)" }}
+              >
+                <Artwork src={creator.avatar} color={creator.color} alt="" className="ptv-zoom h-full w-full" />
+              </button>
+              <div className="flex max-w-[34vh] flex-col items-center text-center">
                 <h2 className="text-lg font-bold leading-snug text-balance">{creator.name}</h2>
-                <p className="text-sm leading-snug text-balance" style={{ color: "var(--ptv-muted)" }}>
-                  {creator.tagline}
+                <p className="mt-0.5 text-xs font-semibold" style={{ color: "var(--ptv-muted-dim)" }}>
+                  {count} episodios
                 </p>
               </div>
-            </motion.button>
+            </motion.div>
           )
         })}
       </div>
       </div>
+    </div>
+  )
+}
+
+/** Settings: interface sounds (off by default) and log out, tucked behind one gear. */
+function SettingsMenu({ onLogout }: { onLogout: () => void }) {
+  const [open, setOpen] = useState(false)
+  const [sounds, setSounds] = useState(soundsEnabled())
+  useEffect(() => {
+    if (open) requestAnimationFrame(() => focusById("set-sounds"))
+  }, [open])
+  useTvInput((action) => {
+    if (!open) return false
+    if (action === "back") {
+      setOpen(false)
+      requestAnimationFrame(() => focusById("settings"))
+      return true
+    }
+    return false
+  })
+  return (
+    <div className="relative">
+      <motion.button
+        type="button"
+        data-nav
+        data-nav-id="settings"
+        aria-label="Ajustes"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+        className="flex h-10 w-10 items-center justify-center rounded-full"
+        style={{ background: "var(--ptv-surface)", color: "var(--ptv-muted)" }}
+        animate={{ rotate: open ? 90 : 0 }}
+        transition={{ type: "spring", stiffness: 380, damping: 16 }}
+      >
+        <Settings2 className="h-4 w-4" aria-hidden="true" />
+      </motion.button>
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            className="absolute right-0 top-[calc(100%+10px)] z-50 flex w-60 flex-col gap-1 rounded-3xl p-2"
+            style={{ background: "rgba(24,24,28,0.97)", border: "1px solid var(--ptv-line)", transformOrigin: "top right" }}
+            initial={{ opacity: 0, scale: 0.8, y: -6 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.12 } }}
+            transition={{ type: "spring", stiffness: 520, damping: 24 }}
+          >
+            <button
+              type="button"
+              data-nav
+              data-nav-id="set-sounds"
+              className="ptv-menu-item flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold"
+              onClick={() => {
+                setSoundsEnabled(!sounds)
+                setSounds(!sounds)
+                if (!sounds) uiSound("select")
+              }}
+            >
+              {sounds ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+              Sonidos: {sounds ? "sí" : "no"}
+            </button>
+            <button
+              type="button"
+              data-nav
+              data-nav-id="set-logout"
+              className="ptv-menu-item flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold"
+              onClick={() => {
+                setOpen(false)
+                onLogout()
+              }}
+            >
+              <LogOut className="h-4 w-4" />
+              Cerrar sesión
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

@@ -1,4 +1,8 @@
 import { useState } from "react"
+
+/** Natural aspect ratio per image URL (w/h), learnt on first load; lets cards match each banner. */
+const ratios = new Map<string, number>()
+export const knownRatio = (src?: string) => (src ? ratios.get(src) : undefined)
 import type { ArtColor } from "@/lib/patreon-tv/types"
 
 const COLOR_GRADIENTS: Record<ArtColor, string> = {
@@ -14,11 +18,13 @@ export function Artwork({
   color,
   alt = "",
   className = "",
+  onRatio,
 }: {
   src?: string
   color: ArtColor
   alt?: string
   className?: string
+  onRatio?: (ratio: number) => void
 }) {
   const [failed, setFailed] = useState(false)
 
@@ -38,6 +44,16 @@ export function Artwork({
       src={src}
       alt={alt}
       className={`${className} object-cover`}
+      loading="lazy"
+      decoding="async"
+      onLoad={(e) => {
+        const img = e.currentTarget
+        if (img.naturalWidth && img.naturalHeight) {
+          const r = img.naturalWidth / img.naturalHeight
+          ratios.set(src, r)
+          onRatio?.(r)
+        }
+      }}
       onError={() => setFailed(true)}
       draggable={false}
     />

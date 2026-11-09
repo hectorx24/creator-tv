@@ -3,13 +3,11 @@ package com.patreontv.personal;
 import android.app.Activity;
 import android.content.*;
 import android.view.inputmethod.InputMethodManager;
-import android.view.KeyEvent;
-import android.view.WindowManager;
 import android.webkit.*;
 import org.json.JSONObject;
 import java.net.URI;
 
-/** Narrow playback bridge and custom TV keyboard remote adapter. No cookie, file, account, or network-reading API is exposed to JavaScript. */
+/** Narrow playback bridge and native Android TV IME summoner. No cookie, file, account, or network-reading API is exposed to JavaScript. */
 public final class NativeAudioBridge {
     private final Activity activity;
     private final WebView view;
@@ -23,16 +21,33 @@ public final class NativeAudioBridge {
 
     public static void install(Activity activity, WebView view) {
         view.addJavascriptInterface(new NativeAudioBridge(activity, view), "PersonalAudio");
-        // Ensure the window allows the native Google TV / Android TV input method (IME) to show.
-        activity.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM);
+        // The base app sets FLAG_KEEP_SCREEN_ON forever, which blocks the Google TV screensaver.
+        // Keep the screen on only while a video is actually playing (see setKeepAwake).
+        activity.getWindow().clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         try {
             PhoneRemoteServer.start(activity, view);
         } catch (Exception ignored) {}
     }
 
-    /** No-op: Allow native Android WebView to handle remote OK and invoke the native IME. */
-    public static boolean dispatchRemoteOk(WebView view, KeyEvent event) {
-        return false;
+    private static final java.util.concurrent.ExecutorService bodyPool = java.util.concurrent.Executors.newSingleThreadExecutor();
+    /** Async: result delivered to window.__ctvPostBody(jsonString). Body text only (see CatalogExtension.postBody). */
+    @JavascriptInterface
+    public void postBody(final String id) {
+        bodyPool.execute(new Runnable() { @Override public void run() {
+            final String json = CatalogExtension.postBody(id);
+            if (view != null) view.post(new Runnable() { @Override public void run() {
+                view.evaluateJavascript("window.__ctvPostBody&&window.__ctvPostBody(" + JSONObject.quote(json) + ")", null);
+            }});
+        }});
+    }
+
+    @JavascriptInterface
+    public void setKeepAwake(final boolean on) {
+        if (activity == null) return;
+        activity.runOnUiThread(new Runnable() { @Override public void run() {
+            if (on) activity.getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+            else activity.getWindow().clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        }});
     }
 
     @JavascriptInterface
@@ -104,6 +119,14 @@ public final class NativeAudioBridge {
     private void send(String action, int delta) {
         try {
             context.startForegroundService(intent(action).putExtra("delta", delta));
+        } catch (Exception ignored) {}
+    }
+
+    /** Playback speed 0.5x–3x (persisted by the service). */
+    @JavascriptInterface
+    public void setSpeed(float speed) {
+        try {
+            context.startForegroundService(intent("speed").putExtra("speed", Math.max(0.5f, Math.min(3f, speed))));
         } catch (Exception ignored) {}
     }
 
